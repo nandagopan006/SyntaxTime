@@ -1,5 +1,7 @@
 import { Outlet } from "react-router-dom";
 
+import { useTimer } from "../../hooks/useTimer";
+
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 
@@ -10,6 +12,10 @@ import TopBar from "./TopBar";
   stay mounted while React Router swaps the page shown in <Outlet />.
 */
 function AppShell() {
+  // Driven here, once, so the countdown keeps running while the user moves
+  // between pages and no second interval can ever be created.
+  useTimer();
+
   return (
     <div className="min-h-screen flex">
       <Sidebar />
