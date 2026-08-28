@@ -6,10 +6,14 @@ import { useAuth } from "../../context/AuthContext";
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Without this the page would flash the login screen on every reload,
-  // while /api/auth/me/ is still being checked.
+  // Without this the login screen would flash on every reload, while
+  // /api/auth/me/ is still confirming the stored token.
   if (isLoading) {
-    return <p className="p-8 text-slate-600">Loading...</p>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-ink-muted">Loading...</p>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {

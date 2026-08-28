@@ -1,1 +1,38 @@
 @import "tailwindcss";
+
+/*
+  Neo-classical design tokens for SyntaxTime.
+
+  Colours and fonts are defined once here rather than repeated as hex codes
+  across components. Tailwind v4 turns each token into utility classes, so
+  --color-parchment gives bg-parchment, text-parchment and border-parchment.
+*/
+@theme {
+  /* Surfaces: warm ivory and parchment */
+  --color-parchment: #f4efe4;
+  --color-surface: #fbf8f1;
+  --color-surface-sunken: #ece5d6;
+
+  /* Text: deep ink and charcoal */
+  --color-ink: #1f1c18;
+  --color-ink-muted: #5c554a;
+  --color-ink-faint: #8a8172;
+
+  /* Accent: restrained antique brass, used sparingly */
+  --color-brass: #9c7c38;
+  --color-brass-soft: #c9a961;
+
+  /* Secondary accents kept for later phases */
+  --color-burgundy: #6b2b33;
+  --color-forest: #34503f;
+
+  /* Hairline borders */
+  --color-rule: #ddd4c2;
+
+  --font-display: "EB Garamond", Georgia, "Times New Roman", serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  @apply bg-parchment text-ink font-sans antialiased;
+}
