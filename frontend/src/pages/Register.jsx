@@ -41,7 +41,7 @@ function Register() {
       });
       // Sign the new user straight in, so they do not retype what they just entered.
       await login({ username: username.trim(), password });
-      navigate("/app");
+      navigate("/");
     } catch (submitError) {
       setError(
         getErrorMessage(submitError, "Could not create the account. Please try again.")
@@ -52,15 +52,15 @@ function Register() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-parchment p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-white border border-slate-200 rounded-lg p-8"
+        className="w-full max-w-sm bg-surface border border-rule rounded-lg p-8"
       >
-        <h1 className="text-2xl font-semibold text-slate-900">Create account</h1>
-        <p className="mt-1 mb-6 text-sm text-slate-600">Start using SyntaxTime.</p>
+        <h1 className="font-display text-3xl text-ink">Create account</h1>
+        <p className="mt-1 mb-6 text-sm text-ink-muted">Start using SyntaxTime.</p>
 
-        <label className="block text-sm font-medium text-slate-700" htmlFor="username">
+        <label className="block text-sm font-medium text-ink" htmlFor="username">
           Username
         </label>
         <input
@@ -69,10 +69,10 @@ function Register() {
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           autoComplete="username"
-          className="mt-1 mb-4 w-full rounded border border-slate-300 px-3 py-2"
+          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
         />
 
-        <label className="block text-sm font-medium text-slate-700" htmlFor="email">
+        <label className="block text-sm font-medium text-ink" htmlFor="email">
           Email
         </label>
         <input
@@ -81,10 +81,10 @@ function Register() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           autoComplete="email"
-          className="mt-1 mb-4 w-full rounded border border-slate-300 px-3 py-2"
+          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
         />
 
-        <label className="block text-sm font-medium text-slate-700" htmlFor="password">
+        <label className="block text-sm font-medium text-ink" htmlFor="password">
           Password
         </label>
         <input
@@ -93,11 +93,11 @@ function Register() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="new-password"
-          className="mt-1 mb-4 w-full rounded border border-slate-300 px-3 py-2"
+          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
         />
 
         <label
-          className="block text-sm font-medium text-slate-700"
+          className="block text-sm font-medium text-ink"
           htmlFor="password-confirm"
         >
           Confirm password
@@ -108,22 +108,22 @@ function Register() {
           value={passwordConfirm}
           onChange={(event) => setPasswordConfirm(event.target.value)}
           autoComplete="new-password"
-          className="mt-1 mb-4 w-full rounded border border-slate-300 px-3 py-2"
+          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
         />
 
-        {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
+        {error && <p className="mb-4 text-sm text-burgundy">{error}</p>}
 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-60"
+          className="w-full rounded bg-ink px-4 py-2 text-white disabled:opacity-60"
         >
           {isSubmitting ? "Creating account..." : "Create account"}
         </button>
 
-        <p className="mt-6 text-sm text-slate-600">
+        <p className="mt-6 text-sm text-ink-muted">
           Already have an account?{" "}
-          <Link to="/login" className="text-slate-900 underline">
+          <Link to="/login" className="text-ink underline">
             Sign in
           </Link>
         </p>
