@@ -1,0 +1,23 @@
+from django.urls import path
+
+from .views import (
+    StudySessionDetailView,
+    StudySessionHistoryView,
+    StudySessionListCreateView,
+    SubjectTotalsView,
+    TodayGoalView,
+    TodayStatisticsView,
+)
+
+urlpatterns = [
+    path("sessions/", StudySessionListCreateView.as_view(), name="session-list"),
+    path("sessions/<int:pk>/", StudySessionDetailView.as_view(), name="session-detail"),
+    path("history/", StudySessionHistoryView.as_view(), name="session-history"),
+    path("statistics/", TodayStatisticsView.as_view(), name="study-statistics"),
+    path("subjects/", SubjectTotalsView.as_view(), name="subject-totals"),
+]
+
+# Included separately under /api/goals/ by the project URLs.
+goal_urlpatterns = [
+    path("today/", TodayGoalView.as_view(), name="today-goal"),
+]
