@@ -5,6 +5,7 @@ Values that differ between machines (secret key, database password, debug flag)
 are read from the .env file so they are never committed to Git.
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,6 +28,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "apps.accounts",
 ]
 
 MIDDLEWARE = [
@@ -86,6 +88,23 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Every API request is identified by a JWT in the Authorization header,
+# and endpoints require a signed-in user unless they say otherwise.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+}
+
+SIMPLE_JWT = {
+    # A short-lived access token limits the damage if it is ever stolen.
+    # The longer refresh token lets the frontend get a new one silently,
+    # so a study session is never interrupted by an unexpected logout.
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
 
 # The frontend runs on a different port, so the browser treats it as a separate
 # origin. Without this, future API calls would be blocked.
