@@ -6,6 +6,13 @@ import { toFocusedMinutes } from "./formatTime";
 export const SUBJECT_MAX_LENGTH = 100;
 export const TOPIC_MAX_LENGTH = 200;
 
+// Subject and topic are optional everywhere in SyntaxTime, so eight different
+// screens have to say what a session with neither is called. These were
+// written out by hand in each of them; naming them once means the wording can
+// never drift apart.
+export const NO_SUBJECT_LABEL = "General Study";
+export const NO_TOPIC_LABEL = "No topic added";
+
 /**
  * Builds the payload that saves a completed study session.
  *

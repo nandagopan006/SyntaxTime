@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import PasswordInput from "../components/auth/PasswordInput";
 import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../services/api";
@@ -8,6 +9,11 @@ import { getErrorMessage } from "../services/api";
 function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Set after verifying an email, so a freshly created account is not dropped
+  // on a sign-in form with no explanation of what just happened.
+  const notice = location.state?.notice;
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -62,17 +68,33 @@ function Login() {
           className="field-control mt-1.5 mb-4"
         />
 
-        <label className="block text-sm font-medium text-ink" htmlFor="password">
-          Password
-        </label>
-        <input
+        <PasswordInput
+          label="Password"
           id="password"
-          type="password"
+          name="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="current-password"
-          className="field-control mt-1.5 mb-4"
+          disabled={isSubmitting}
         />
+
+        <p className="mt-1.5 mb-4 text-right text-sm">
+          <Link
+            to="/forgot-password"
+            className="text-ink-muted underline underline-offset-2 hover:text-ink"
+          >
+            Forgot password?
+          </Link>
+        </p>
+
+        {notice && !error && (
+          <p
+            role="status"
+            className="mb-4 rounded-md border border-rule bg-surface-sunken px-3 py-2 text-sm text-ink-muted"
+          >
+            {notice}
+          </p>
+        )}
 
         {error && (
           <p

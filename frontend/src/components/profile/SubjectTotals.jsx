@@ -1,12 +1,11 @@
 import { formatStudyMinutes } from "../../utils/formatTime";
+import { NO_SUBJECT_LABEL } from "../../utils/studySession";
 import Section from "../ui/Section";
 
 // Enough to see where the time goes without listing every subject ever typed.
 const VISIBLE_SUBJECTS = 5;
 
-// Subject is optional in SyntaxTime. This is the same label History and the
-// dashboard use for time recorded without one.
-const NO_SUBJECT_LABEL = "General Study";
+
 
 /**
  * Trims the list to the busiest few, gathering the rest into one "Other" row.

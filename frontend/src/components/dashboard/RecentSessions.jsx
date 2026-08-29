@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { fetchRecentSessions } from "../../features/statistics/statisticsSlice";
 import { formatSessionDate } from "../../utils/formatDate";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../../utils/studySession";
 import Button from "../ui/Button";
 import DashboardSection from "./DashboardSection";
 
@@ -75,10 +76,10 @@ function RecentSessions() {
               {/* Subject and topic are optional, so each falls back to wording
                   that reads as a real answer rather than a missing value. */}
               <p className="truncate text-sm text-ink">
-                {session.subject || "General Study"}
+                {session.subject || NO_SUBJECT_LABEL}
               </p>
               <p className="truncate text-sm text-ink-faint">
-                {session.topic || "No topic added"}
+                {session.topic || NO_TOPIC_LABEL}
               </p>
             </div>
 

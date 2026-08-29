@@ -10,18 +10,15 @@ import {
   resetTimer,
   resumeTimer,
 } from "../../features/timer/timerSlice";
+import { getTimerStatus } from "../../features/timer/timerStatus";
 import { exitFocusMode } from "../../features/ui/uiSlice";
+import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../../utils/studySession";
 import Button from "../ui/Button";
 import { formatStudyTime, formatTime } from "../../utils/formatTime";
 import BreakTimer from "./BreakTimer";
 import TimerControls from "./TimerControls";
 
-/** Returns the short status word shown above the countdown. */
-function getStatusLabel(timer) {
-  if (timer.isCompleted) return "Session complete";
-  if (timer.isPaused) return "Paused";
-  return "Focusing";
-}
+
 
 /*
   The distraction-free study view.
@@ -113,10 +110,10 @@ function FocusMode() {
         ) : (
           <div className="w-full max-w-2xl">
             <p className="text-2xl text-ink break-words sm:text-3xl font-display">
-              {timer.subject || "General Study"}
+              {timer.subject || NO_SUBJECT_LABEL}
             </p>
             <p className="mt-1.5 text-base text-ink-muted break-words">
-              {timer.topic || "No topic added"}
+              {timer.topic || NO_TOPIC_LABEL}
             </p>
 
             {/* Far larger than anywhere else in the application. In focus mode
@@ -129,7 +126,7 @@ function FocusMode() {
               {formatTime(timer.remainingSeconds)}
             </p>
 
-            <p className="mt-5 section-eyebrow">{getStatusLabel(timer)}</p>
+            <p className="mt-5 section-eyebrow">{getTimerStatus(timer)}</p>
 
             <div className="mt-12 flex flex-wrap justify-center gap-3">
               {timer.isCompleted ? (

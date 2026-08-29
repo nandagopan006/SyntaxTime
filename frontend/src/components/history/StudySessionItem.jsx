@@ -1,5 +1,6 @@
 import { formatSessionTime } from "../../utils/formatDate";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../../utils/studySession";
 
 /*
   One session in the history list.
@@ -27,10 +28,10 @@ function StudySessionItem({ session, isSelected, onSelect }) {
                 each falls back to wording that reads as an answer rather than
                 a missing value. */}
             <p className="truncate text-base font-medium text-ink">
-              {session.subject || "General Study"}
+              {session.subject || NO_SUBJECT_LABEL}
             </p>
             <p className="truncate text-sm text-ink-muted">
-              {session.topic || "No topic added"}
+              {session.topic || NO_TOPIC_LABEL}
             </p>
           </div>
 

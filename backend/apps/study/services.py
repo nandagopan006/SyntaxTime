@@ -62,15 +62,17 @@ def get_study_dates(user):
     )
 
 
-def get_current_streak_days(user):
+def count_current_streak(study_dates):
     """
-    Counts the consecutive days, up to today, on which the user studied.
+    Counts the consecutive days, up to today, in a set of study dates.
 
     A streak is only broken once a whole day has been missed, so studying
     yesterday but not yet today still counts. Without that, every streak would
     appear to reset each midnight until the first session of the day.
+
+    Takes the dates rather than a user, so a caller that already has them does
+    not have to ask the database for them again.
     """
-    study_dates = get_study_dates(user)
     today = timezone.localdate()
     yesterday = today - timedelta(days=1)
 
@@ -89,23 +91,22 @@ def get_current_streak_days(user):
     return streak_days
 
 
-def get_longest_streak_days(user):
+def count_longest_streak(study_dates):
     """
-    Returns the longest run of consecutive days the user has ever studied.
+    Returns the longest run of consecutive days in a set of study dates.
 
-    Walks the study dates in order, counting how long each unbroken run lasts
-    and keeping the best one. This is not the same as the number of study days:
-    studying on 1 January and again on 1 June is two runs of one day, not a run
-    of two.
+    Walks them in order, counting how long each unbroken run lasts and keeping
+    the best one. This is not the same as the number of study days: studying on
+    1 January and again on 1 June is two runs of one day, not a run of two.
     """
-    study_dates = sorted(get_study_dates(user))
-    if not study_dates:
+    ordered_dates = sorted(study_dates)
+    if not ordered_dates:
         return 0
 
     longest_run = 1
     current_run = 1
 
-    for previous_day, day in zip(study_dates, study_dates[1:]):
+    for previous_day, day in zip(ordered_dates, ordered_dates[1:]):
         if day - previous_day == timedelta(days=1):
             current_run += 1
         else:
@@ -114,6 +115,16 @@ def get_longest_streak_days(user):
         longest_run = max(longest_run, current_run)
 
     return longest_run
+
+
+def get_current_streak_days(user):
+    """Counts the user's current run of consecutive study days."""
+    return count_current_streak(get_study_dates(user))
+
+
+def get_longest_streak_days(user):
+    """Returns the longest run of consecutive study days the user has had."""
+    return count_longest_streak(get_study_dates(user))
 
 
 def get_lifetime_totals(user):
@@ -170,16 +181,19 @@ def get_profile_statistics(user):
     """
     totals = get_lifetime_totals(user)
     subjects = get_subject_totals(user)
+    # Both streaks and the study-day count are answers about the same set of
+    # dates, so it is read once rather than three times per request.
+    study_dates = get_study_dates(user)
 
     return {
         "total_focused_minutes": totals["focused_minutes"],
         "total_sessions": totals["sessions_count"],
-        "current_streak_days": get_current_streak_days(user),
-        "longest_streak_days": get_longest_streak_days(user),
+        "current_streak_days": count_current_streak(study_dates),
+        "longest_streak_days": count_longest_streak(study_dates),
         "average_session_minutes": get_average_session_minutes(user),
         # Unique calendar dates, not sessions: three sessions on one evening
         # are one study day.
-        "total_study_days": len(get_study_dates(user)),
+        "total_study_days": len(study_dates),
         "most_studied_subject": get_most_studied_subject(subjects),
         "subjects": subjects,
     }

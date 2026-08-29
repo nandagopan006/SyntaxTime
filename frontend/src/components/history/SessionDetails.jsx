@@ -2,6 +2,7 @@ import { Pencil } from "lucide-react";
 
 import { formatFullDate, formatSessionTime } from "../../utils/formatDate";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../../utils/studySession";
 import Button from "../ui/Button";
 
 /** One label-and-value row in the detail panel. */
@@ -26,10 +27,10 @@ function SessionDetails({ session, onEdit }) {
   return (
     <div>
       <h2 className="text-2xl text-ink break-words">
-        {session.subject || "General Study"}
+        {session.subject || NO_SUBJECT_LABEL}
       </h2>
       <p className="mt-1 text-sm text-ink-muted break-words">
-        {session.topic || "No topic added"}
+        {session.topic || NO_TOPIC_LABEL}
       </p>
 
       <dl className="mt-6 border-t border-rule pt-4 text-sm">

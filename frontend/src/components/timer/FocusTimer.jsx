@@ -19,8 +19,11 @@ import {
   startBreak,
   startTimer,
 } from "../../features/timer/timerSlice";
+import { getTimerStatus } from "../../features/timer/timerStatus";
 import { enterFocusMode } from "../../features/ui/uiSlice";
 import {
+  NO_SUBJECT_LABEL,
+  NO_TOPIC_LABEL,
   SUBJECT_MAX_LENGTH,
   TOPIC_MAX_LENGTH,
   buildSessionPayload,
@@ -34,17 +37,7 @@ import TimerDial from "./TimerDial";
 
 const DEFAULT_MINUTES = 25;
 
-/**
- * The one word describing what the timer is doing.
- *
- * Written out rather than shown only as a colour, so the state is readable
- * without seeing the ring.
- */
-function getTimerStatus(timer) {
-  if (timer.isPaused) return "Paused";
-  if (timer.isRunning) return "Focus";
-  return "Ready";
-}
+
 
 /**
  * The focus session card on Home.
@@ -212,8 +205,8 @@ function FocusTimer() {
 
         {isActive && (
           <p className="text-sm text-ink-muted">
-            {timer.subject || "General Study"}
-            <span className="text-ink-faint"> · {timer.topic || "No topic added"}</span>
+            {timer.subject || NO_SUBJECT_LABEL}
+            <span className="text-ink-faint"> · {timer.topic || NO_TOPIC_LABEL}</span>
           </p>
         )}
       </div>
@@ -225,7 +218,6 @@ function FocusTimer() {
           remainingSeconds={timer.remainingSeconds}
           durationSeconds={timer.durationSeconds}
           status={getTimerStatus(timer)}
-          isBreak={false}
         />
       </div>
 

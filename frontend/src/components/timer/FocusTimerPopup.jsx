@@ -10,7 +10,9 @@ import {
   resetTimer,
   resumeTimer,
 } from "../../features/timer/timerSlice";
+import { getTimerStatus } from "../../features/timer/timerStatus";
 import { closeFocusPopup, enterFocusMode } from "../../features/ui/uiSlice";
+import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../../utils/studySession";
 import Button from "../ui/Button";
 import { formatStudyTime, formatTime } from "../../utils/formatTime";
 import BreakTimer from "./BreakTimer";
@@ -47,13 +49,7 @@ function getRestingPosition() {
   );
 }
 
-/** Returns the short status word shown under the popup title. */
-function getStatusLabel(timer) {
-  if (timer.isCompleted) return "Session complete";
-  if (timer.isPaused) return "Paused";
-  if (timer.isRunning) return "Focus";
-  return "Ready";
-}
+
 
 /*
   A compact floating view of the session already running.
@@ -187,7 +183,7 @@ function FocusTimerPopup() {
         </div>
       ) : (
         <div className="px-5 pb-5 pt-4">
-          <p className="section-eyebrow text-center">{getStatusLabel(timer)}</p>
+          <p className="section-eyebrow text-center">{getTimerStatus(timer)}</p>
 
           <p
             role="timer"
@@ -198,10 +194,10 @@ function FocusTimerPopup() {
           </p>
 
           <p className="mt-4 truncate text-center text-sm text-ink">
-            {timer.subject || "General Study"}
+            {timer.subject || NO_SUBJECT_LABEL}
           </p>
           <p className="truncate text-center text-sm text-ink-faint">
-            {timer.topic || "No topic added"}
+            {timer.topic || NO_TOPIC_LABEL}
           </p>
 
           <p className="mt-4 border-t border-rule pt-3 text-center text-sm text-ink-muted">

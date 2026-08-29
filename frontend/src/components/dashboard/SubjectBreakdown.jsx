@@ -1,11 +1,10 @@
 import { useSelector } from "react-redux";
 
 import { formatStudyMinutes } from "../../utils/formatTime";
+import { NO_SUBJECT_LABEL } from "../../utils/studySession";
 import DashboardSection from "./DashboardSection";
 
-// Subject is optional in SyntaxTime, so a session saved without one must still
-// appear. This is the single label used for those sessions everywhere.
-const NO_SUBJECT_LABEL = "General Study";
+
 
 /*
   How today's focused time was split between subjects.

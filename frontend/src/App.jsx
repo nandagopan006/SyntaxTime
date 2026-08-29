@@ -3,12 +3,15 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AppShell from "./components/layout/AppShell";
 import { useAuth } from "./context/AuthContext";
+import ForgotPassword from "./pages/ForgotPassword";
 import Friends from "./pages/Friends";
 import History from "./pages/History";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
 
 function App() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -35,6 +38,24 @@ function App() {
         path="/register"
         element={isAuthenticated ? <Navigate to="/" replace /> : <Register />}
       />
+      {/*
+        Reached only from the register form. The page sends anyone who arrives
+        without a registration in progress back to it.
+      */}
+      <Route
+        path="/verify-email"
+        element={isAuthenticated ? <Navigate to="/" replace /> : <VerifyEmail />}
+      />
+
+      <Route
+        path="/forgot-password"
+        element={isAuthenticated ? <Navigate to="/" replace /> : <ForgotPassword />}
+      />
+      {/*
+        Not redirected away when signed in. The link is the authorisation, and
+        somebody already signed in on this machine may still be following one.
+      */}
+      <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
 
       {/*
         A layout route: the four pages below share one AppShell, and the
