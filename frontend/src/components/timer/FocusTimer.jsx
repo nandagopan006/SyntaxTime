@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
+import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
 import {
   clearTimer,
   finishTimer,
@@ -24,13 +25,17 @@ const DEFAULT_MINUTES = 25;
  * The focus session card on Home.
  *
  * Reads the timer from Redux and turns button clicks into timer actions. The
- * countdown itself runs in useTimer, and saving happens through studyService,
- * so this component only composes the two.
+ * countdown runs in useTimer and saving happens through studyService, so this
+ * component composes the two rather than owning either.
  */
 function FocusTimer() {
   const dispatch = useDispatch();
   const timer = useSelector((state) => state.timer);
 
+  // A snapshot of the finished session. Kept in local state because the Redux
+  // timer is cleared as soon as the session is saved, and the summary must
+  // stay on screen after that.
+  const [completedSession, setCompletedSession] = useState(null);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | failed
   const [saveError, setSaveError] = useState("");
 
@@ -51,76 +56,83 @@ function FocusTimer() {
     }
 
     hasSavedRef.current = true;
-    saveCompletedSession();
-    // saveCompletedSession reads the timer values at completion time, which do
-    // not change afterwards, so this only needs to run when the session ends.
+
+    const plannedMinutes = Math.round(timer.durationSeconds / 60);
+    const session = {
+      planned_minutes: plannedMinutes,
+      focused_minutes: toFocusedMinutes(timer.elapsedFocusSeconds, plannedMinutes),
+      subject: timer.subject,
+      topic: timer.topic,
+      started_at: timer.startedAt,
+      completed_at: new Date().toISOString(),
+      status: "completed",
+      notes: "",
+    };
+
+    setCompletedSession(session);
+    saveSession(session);
+    // The timer values are frozen once the session completes, so this only
+    // needs to run at the moment it finishes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timer.isCompleted]);
 
-  async function saveCompletedSession() {
-    const plannedMinutes = Math.round(timer.durationSeconds / 60);
-
+  async function saveSession(session) {
     setSaveState("saving");
     setSaveError("");
 
     try {
-      await createStudySession({
-        planned_minutes: plannedMinutes,
-        focused_minutes: toFocusedMinutes(timer.elapsedFocusSeconds, plannedMinutes),
-        subject: timer.subject,
-        topic: timer.topic,
-        started_at: timer.startedAt,
-        completed_at: new Date().toISOString(),
-        status: "completed",
-        notes: "",
-      });
-      setSaveState("saved");
+      await createStudySession(session);
     } catch (error) {
+      // The timer is deliberately left untouched, so the focused time is still
+      // counted in today's total and the user can try again.
       setSaveState("failed");
       setSaveError(getErrorMessage(error, "Could not save this session."));
+      return;
     }
+
+    setSaveState("saved");
+
+    // These two belong together. The refreshed total now includes the minutes
+    // just saved, and clearing the timer removes the same minutes from the
+    // active contribution, so the session is counted exactly once.
+    await dispatch(fetchTodayStatistics());
+    dispatch(clearTimer());
   }
 
   function handleStart() {
-    dispatch(
-      startTimer({ startedAt: new Date().toISOString(), now: Date.now() })
-    );
+    dispatch(startTimer({ startedAt: new Date().toISOString(), now: Date.now() }));
   }
 
-  function handleReset() {
-    dispatch(resetTimer());
-  }
-
-  /** Clears the finished session and returns the card to its idle state. */
+  /** Dismisses the finished session and returns the card to its idle state. */
   function handleDone() {
     hasSavedRef.current = false;
+    setCompletedSession(null);
     setSaveState("idle");
     setSaveError("");
     dispatch(clearTimer());
-    dispatch(setDuration(DEFAULT_MINUTES * 60));
   }
 
   const selectedMinutes = Math.round(timer.durationSeconds / 60);
   const isActive = timer.isRunning || timer.isPaused;
 
-  if (timer.isCompleted) {
+  if (completedSession) {
     return (
       <section className="bg-surface border border-rule rounded-lg p-8">
         <h2 className="font-display text-2xl text-ink">Session complete</h2>
 
         <p className="mt-6 text-ink-muted text-sm">Focused</p>
         <p className="font-display text-5xl text-ink tabular-nums">
-          {toFocusedMinutes(timer.elapsedFocusSeconds, selectedMinutes)} min
+          {completedSession.focused_minutes} min
         </p>
 
         <dl className="mt-6 space-y-1 text-sm">
           <div className="flex gap-2">
             <dt className="text-ink-muted w-20">Subject</dt>
-            <dd className="text-ink">{timer.subject || "General Study"}</dd>
+            <dd className="text-ink">{completedSession.subject || "General Study"}</dd>
           </div>
           <div className="flex gap-2">
             <dt className="text-ink-muted w-20">Topic</dt>
-            <dd className="text-ink">{timer.topic || "No topic added"}</dd>
+            <dd className="text-ink">{completedSession.topic || "No topic added"}</dd>
           </div>
         </dl>
 
@@ -136,9 +148,13 @@ function FocusTimer() {
           {saveState === "failed" && (
             <div>
               <p className="text-sm text-burgundy">{saveError}</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                This session is not in your history yet, and is still counted in
+                today&apos;s total below.
+              </p>
               <button
                 type="button"
-                onClick={saveCompletedSession}
+                onClick={() => saveSession(completedSession)}
                 className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink hover:bg-surface-sunken"
               >
                 Try again
@@ -150,7 +166,7 @@ function FocusTimer() {
             type="button"
             onClick={handleDone}
             disabled={saveState === "saving"}
-            className="mt-4 rounded bg-ink px-5 py-2.5 text-sm text-parchment disabled:opacity-50"
+            className="mt-4 block rounded bg-ink px-5 py-2.5 text-sm text-parchment disabled:opacity-50"
           >
             Done
           </button>
@@ -224,7 +240,7 @@ function FocusTimer() {
         onStart={handleStart}
         onPause={() => dispatch(pauseTimer(Date.now()))}
         onResume={() => dispatch(resumeTimer(Date.now()))}
-        onReset={handleReset}
+        onReset={() => dispatch(resetTimer())}
         onFinish={() => dispatch(finishTimer(Date.now()))}
       />
     </section>

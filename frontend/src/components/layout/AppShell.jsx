@@ -1,5 +1,8 @@
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { Outlet } from "react-router-dom";
 
+import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
 import { useTimer } from "../../hooks/useTimer";
 
 import Sidebar from "./Sidebar";
@@ -15,6 +18,14 @@ function AppShell() {
   // Driven here, once, so the countdown keeps running while the user moves
   // between pages and no second interval can ever be created.
   useTimer();
+
+  const dispatch = useDispatch();
+
+  // Loaded once here rather than in Home, so today's total is already
+  // available to the compact popup and Focus Mode later on.
+  useEffect(() => {
+    dispatch(fetchTodayStatistics());
+  }, [dispatch]);
 
   return (
     <div className="min-h-screen flex">

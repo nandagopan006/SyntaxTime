@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import authReducer from "../features/auth/authSlice";
+import statisticsReducer from "../features/statistics/statisticsSlice";
 import timerReducer from "../features/timer/timerSlice";
 import uiReducer from "../features/ui/uiSlice";
 
@@ -13,6 +14,7 @@ import uiReducer from "../features/ui/uiSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    statistics: statisticsReducer,
     timer: timerReducer,
     ui: uiReducer,
   },

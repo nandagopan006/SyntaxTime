@@ -19,7 +19,7 @@ are implemented yet.
 | Styling          | Tailwind CSS              |
 | Backend          | Python, Django            |
 | API framework    | Django REST Framework     |
-| Database         | PostgreSQL                |
+| Database         | Neon (PostgreSQL)         |
 | Version control  | Git, GitHub               |
 
 ## Project structure
@@ -55,12 +55,28 @@ uses its own:
 | Backend  | http://localhost:8001   |
 | Frontend | http://localhost:5180   |
 
-## PostgreSQL setup
+## Database
 
-Create the database once:
+SyntaxTime uses **Neon** (hosted PostgreSQL), project `SyntaxTime`. There is no
+local database to install or start.
+
+Django reads a single `DATABASE_URL` from `backend/.env`. Copy it from the Neon
+console. If `DATABASE_URL` is missing, settings fall back to the `DB_*`
+variables for a local PostgreSQL server instead.
+
+Neon gives two connection strings:
+
+- **`DATABASE_URL`** (direct) - used by Django, which holds a connection open
+  between requests and so does not need the pooler.
+- **`DATABASE_URL_POOLED`** - routed through PgBouncer. Useful for serverless
+  functions that open many short-lived connections. Kept in `.env` for later.
+
+Apply the schema once:
 
 ```
-"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE syntaxtime;"
+cd backend
+venv\Scripts\activate
+python manage.py migrate
 ```
 
 ## Environment variables
@@ -73,11 +89,8 @@ Copy `backend/.env.example` to `backend/.env` and fill in real values.
 | `DJANGO_SECRET_KEY`    | Signs sessions and tokens                |
 | `DJANGO_DEBUG`         | Detailed errors during development       |
 | `DJANGO_ALLOWED_HOSTS` | Hostnames Django will answer to          |
-| `DB_NAME`              | PostgreSQL database name                 |
-| `DB_USER`              | PostgreSQL user                          |
-| `DB_PASSWORD`          | PostgreSQL password                      |
-| `DB_HOST`              | Database host                            |
-| `DB_PORT`              | Database port                            |
+| `DATABASE_URL`         | Neon connection string                   |
+| `DATABASE_URL_POOLED`  | Neon pooled connection string            |
 
 ## Backend setup
 

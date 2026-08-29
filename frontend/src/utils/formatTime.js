@@ -17,3 +17,30 @@ export function formatTime(totalSeconds) {
 export function toFocusedMinutes(elapsedSeconds, plannedMinutes) {
   return Math.min(Math.round(elapsedSeconds / 60), plannedMinutes);
 }
+
+/**
+ * Formats focused study seconds as a readable duration, such as "2h 43m".
+ * Used for daily totals, where seconds are noise rather than information.
+ */
+export function formatStudyTime(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+
+  if (hours === 0) {
+    return `${minutes}m`;
+  }
+  if (minutes === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${minutes}m`;
+}
+
+/** Percentage of the daily target reached, safely handling a target of zero. */
+export function calculateProgressPercent(focusedSeconds, targetMinutes) {
+  if (targetMinutes <= 0) {
+    return 0;
+  }
+  const percent = (focusedSeconds / (targetMinutes * 60)) * 100;
+  return Math.min(Math.round(percent), 100);
+}
