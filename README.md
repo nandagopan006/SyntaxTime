@@ -5,10 +5,11 @@ study sessions. It is built mainly for Windows laptop and desktop use.
 
 ## Current phase
 
-**Phase 15 — Study leaderboard.**
+**Phase 16 — Profile and personal study overview.**
 
-The focus timer, dashboard, study history, friends and the friend leaderboard
-are all in place. See the API sections below for the endpoints behind them.
+The focus timer, dashboard, study history, friends, the friend leaderboard and
+the personal profile are all in place. See the API sections below for the
+endpoints behind them.
 
 Note: the project structure section further down still describes the Phase 1
 layout and has not been refreshed.
@@ -231,9 +232,50 @@ Both require authentication and are read-only.
 - An entry carries a rank, an id, a username and a number of minutes. No notes,
   subjects, timestamps or email addresses leave this endpoint.
 
+## Profile API
+
+The profile is the user's own study history in summary: totals, streaks and
+where the time went. It is private - always the signed-in user, never anybody
+else - and there is no `ProfileStatistics` table, because every figure is
+derived from `StudySession` on request.
+
+| Method | Path |
+| --- | --- |
+| `GET` | `/api/study/profile/` |
+
+```json
+{
+  "total_focused_minutes": 1995,
+  "total_sessions": 33,
+  "current_streak_days": 12,
+  "longest_streak_days": 21,
+  "average_session_minutes": 60,
+  "total_study_days": 33,
+  "most_studied_subject": "JavaScript",
+  "subjects": [{"subject": "JavaScript", "focused_minutes": 1200, "sessions_count": 24}]
+}
+```
+
+### What the figures mean
+
+- **total_focused_minutes / total_sessions** — every completed session, ever.
+- **current_streak_days** — consecutive days up to today with at least one
+  completed session. The same function the dashboard uses, so the two always
+  agree.
+- **longest_streak_days** — the best run the user has ever had. Not the same as
+  `total_study_days`: studying on 1 January and again on 1 June is two runs of
+  one day, not a run of two.
+- **total_study_days** — unique calendar dates. Three sessions in one evening
+  are one study day.
+- **most_studied_subject** — the busiest *named* subject. Sessions saved with no
+  subject are time, not a subject, so they are skipped here; their minutes still
+  appear in `subjects` under `""`, which the interface labels General Study.
+
+Cancelled sessions, break minutes and a timer still running contribute to none
+of it. Notes, topics and timestamps never leave this endpoint.
+
 ## Not implemented yet
 
 These belong to later phases and are intentionally absent:
 
-- Profile statistics
 - Notifications

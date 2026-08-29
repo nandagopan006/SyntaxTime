@@ -12,7 +12,12 @@ from .serializers import (
     StudySessionSerializer,
     StudySessionUpdateSerializer,
 )
-from .services import get_subject_totals, get_today_statistics, get_weekly_statistics
+from .services import (
+    get_profile_statistics,
+    get_subject_totals,
+    get_today_statistics,
+    get_weekly_statistics,
+)
 
 
 def get_own_sessions(request):
@@ -154,6 +159,19 @@ class SubjectTotalsView(APIView):
 
     def get(self, request):
         return Response(get_subject_totals(request.user))
+
+
+class ProfileStatisticsView(APIView):
+    """
+    The signed-in user's whole study history in summary.
+
+    Always their own: the user comes from the request's token, so there is no
+    way to ask for somebody else's overview. This is a private page, not a
+    public profile.
+    """
+
+    def get(self, request):
+        return Response(get_profile_statistics(request.user))
 
 
 class TodayGoalView(APIView):

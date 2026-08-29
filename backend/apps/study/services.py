@@ -89,9 +89,36 @@ def get_current_streak_days(user):
     return streak_days
 
 
-def get_average_session_minutes(user):
+def get_longest_streak_days(user):
     """
-    Returns the mean focused length of a completed session, in whole minutes.
+    Returns the longest run of consecutive days the user has ever studied.
+
+    Walks the study dates in order, counting how long each unbroken run lasts
+    and keeping the best one. This is not the same as the number of study days:
+    studying on 1 January and again on 1 June is two runs of one day, not a run
+    of two.
+    """
+    study_dates = sorted(get_study_dates(user))
+    if not study_dates:
+        return 0
+
+    longest_run = 1
+    current_run = 1
+
+    for previous_day, day in zip(study_dates, study_dates[1:]):
+        if day - previous_day == timedelta(days=1):
+            current_run += 1
+        else:
+            current_run = 1
+
+        longest_run = max(longest_run, current_run)
+
+    return longest_run
+
+
+def get_lifetime_totals(user):
+    """
+    Returns how many sessions the user has completed and how long in total.
 
     Cancelled sessions are excluded, and so is the session running right now,
     which has not been saved yet.
@@ -101,10 +128,61 @@ def get_average_session_minutes(user):
         sessions_count=Count("id"),
     )
 
+    return {
+        # Sum() returns None when there are no rows, so fall back to zero.
+        "focused_minutes": totals["focused_minutes"] or 0,
+        "sessions_count": totals["sessions_count"],
+    }
+
+
+def get_average_session_minutes(user):
+    """Returns the mean focused length of a completed session, in whole minutes."""
+    totals = get_lifetime_totals(user)
+
     if not totals["sessions_count"]:
         return 0
 
-    return round((totals["focused_minutes"] or 0) / totals["sessions_count"])
+    return round(totals["focused_minutes"] / totals["sessions_count"])
+
+
+def get_most_studied_subject(subject_totals):
+    """
+    Returns the named subject the user has spent the most time on.
+
+    Subject is optional in SyntaxTime, so sessions saved without one are time
+    rather than a subject, and are skipped here. The totals arrive already
+    sorted, so the first named row is the answer.
+    """
+    for row in subject_totals:
+        if row["subject"]:
+            return row["subject"]
+
+    return ""
+
+
+def get_profile_statistics(user):
+    """
+    Returns the user's whole study history in summary.
+
+    Every figure is produced by the same functions Home and the leaderboard
+    already use, so the profile can never quietly disagree with the rest of the
+    application about a streak or a subject total.
+    """
+    totals = get_lifetime_totals(user)
+    subjects = get_subject_totals(user)
+
+    return {
+        "total_focused_minutes": totals["focused_minutes"],
+        "total_sessions": totals["sessions_count"],
+        "current_streak_days": get_current_streak_days(user),
+        "longest_streak_days": get_longest_streak_days(user),
+        "average_session_minutes": get_average_session_minutes(user),
+        # Unique calendar dates, not sessions: three sessions on one evening
+        # are one study day.
+        "total_study_days": len(get_study_dates(user)),
+        "most_studied_subject": get_most_studied_subject(subjects),
+        "subjects": subjects,
+    }
 
 
 def get_current_week_range():

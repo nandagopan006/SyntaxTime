@@ -755,3 +755,287 @@ class RecentSessionsTests(StudyAPITestCase):
         response = self.client.get(reverse("session-list"), {"limit": "many"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
+class ProfileStatisticsTests(StudyAPITestCase):
+    """
+    The Profile page reads one endpoint: the user's whole study history,
+    summarised. Every figure here is lifetime, not today.
+    """
+
+    def study_on_day(self, days_ago, **fields):
+        """Records a completed session that started the given number of days ago."""
+        started_at = timezone.now() - timedelta(days=days_ago)
+        defaults = {
+            "started_at": started_at,
+            "completed_at": started_at + timedelta(minutes=fields.get("focused_minutes", 47)),
+        }
+        defaults.update(fields)
+        return self.create_session(**defaults)
+
+    def profile(self, user=None):
+        if user is not None:
+            self.client.force_authenticate(user=user)
+        return self.client.get(reverse("profile-statistics")).data
+
+    def test_an_anonymous_request_is_rejected(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse("profile-statistics"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_a_new_user_gets_zeroes_rather_than_an_error(self):
+        profile = self.profile()
+
+        self.assertEqual(profile["total_focused_minutes"], 0)
+        self.assertEqual(profile["total_sessions"], 0)
+        self.assertEqual(profile["current_streak_days"], 0)
+        self.assertEqual(profile["longest_streak_days"], 0)
+        self.assertEqual(profile["average_session_minutes"], 0)
+        self.assertEqual(profile["total_study_days"], 0)
+        self.assertEqual(profile["most_studied_subject"], "")
+        self.assertEqual(profile["subjects"], [])
+
+    def test_lifetime_totals(self):
+        self.create_session(subject="JavaScript", planned_minutes=100, focused_minutes=100)
+        self.create_session(subject="JavaScript", planned_minutes=150, focused_minutes=150)
+        self.create_session(subject="React", planned_minutes=120, focused_minutes=120)
+        self.create_session(subject="React", planned_minutes=100, focused_minutes=100)
+        self.create_session(subject="Python", planned_minutes=90, focused_minutes=90)
+        self.create_session(subject="Django", planned_minutes=60, focused_minutes=60)
+        self.create_session(subject="", planned_minutes=30, focused_minutes=30)
+
+        profile = self.profile()
+        self.assertEqual(profile["total_focused_minutes"], 650)
+        self.assertEqual(profile["total_sessions"], 7)
+
+    def test_the_average_is_the_total_over_the_count(self):
+        self.create_session(planned_minutes=60, focused_minutes=60)
+        self.create_session(planned_minutes=40, focused_minutes=40)
+        self.create_session(planned_minutes=20, focused_minutes=20)
+
+        self.assertEqual(self.profile()["average_session_minutes"], 40)
+
+    def test_cancelled_sessions_are_excluded_everywhere(self):
+        self.create_session(subject="Python", planned_minutes=100, focused_minutes=100)
+        self.create_session(
+            subject="Rust",
+            planned_minutes=200,
+            focused_minutes=0,
+            status=StudySession.Status.CANCELLED,
+        )
+
+        profile = self.profile()
+        self.assertEqual(profile["total_focused_minutes"], 100)
+        self.assertEqual(profile["total_sessions"], 1)
+        self.assertEqual(profile["total_study_days"], 1)
+        self.assertEqual([row["subject"] for row in profile["subjects"]], ["Python"])
+        self.assertEqual(profile["most_studied_subject"], "Python")
+
+    def test_only_focused_minutes_count_not_the_planned_length(self):
+        # A 60 minute booking the user focused 50 of. The other 10 were a break,
+        # and break minutes never reach focused_minutes.
+        self.create_session(planned_minutes=60, focused_minutes=50)
+
+        self.assertEqual(self.profile()["total_focused_minutes"], 50)
+
+    def test_another_users_sessions_are_not_counted(self):
+        self.create_session(user=self.abhay, planned_minutes=500, focused_minutes=500)
+
+        self.assertEqual(self.profile()["total_focused_minutes"], 0)
+
+    def test_each_user_gets_their_own_overview(self):
+        self.create_session(planned_minutes=100, focused_minutes=100)
+        self.create_session(user=self.abhay, planned_minutes=60, focused_minutes=60)
+
+        self.assertEqual(self.profile(self.nandhu)["total_focused_minutes"], 100)
+        self.assertEqual(self.profile(self.abhay)["total_focused_minutes"], 60)
+
+
+class ProfileStudyDayTests(StudyAPITestCase):
+    def study_on_day(self, days_ago, **fields):
+        started_at = timezone.now() - timedelta(days=days_ago)
+        return self.create_session(
+            started_at=started_at,
+            completed_at=started_at + timedelta(minutes=47),
+            **fields,
+        )
+
+    def profile(self):
+        return self.client.get(reverse("profile-statistics")).data
+
+    def test_several_sessions_in_one_evening_are_one_study_day(self):
+        self.study_on_day(0, subject="JavaScript", planned_minutes=30, focused_minutes=30)
+        self.study_on_day(0, subject="React", planned_minutes=40, focused_minutes=40)
+        self.study_on_day(0, subject="Python", planned_minutes=20, focused_minutes=20)
+
+        profile = self.profile()
+        self.assertEqual(profile["total_study_days"], 1)
+        self.assertEqual(profile["total_sessions"], 3)
+
+    def test_study_days_count_distinct_dates(self):
+        for days_ago in (0, 1, 5, 5, 9):
+            self.study_on_day(days_ago)
+
+        self.assertEqual(self.profile()["total_study_days"], 4)
+
+
+class ProfileStreakTests(StudyAPITestCase):
+    """
+    Current streak counts back from today; longest streak is the best run the
+    user has ever had. They are different questions and must not be confused.
+    """
+
+    def study_on_day(self, days_ago, **fields):
+        started_at = timezone.now() - timedelta(days=days_ago)
+        return self.create_session(
+            started_at=started_at,
+            completed_at=started_at + timedelta(minutes=47),
+            **fields,
+        )
+
+    def profile(self):
+        return self.client.get(reverse("profile-statistics")).data
+
+    def test_both_streaks_are_zero_without_sessions(self):
+        profile = self.profile()
+        self.assertEqual(profile["current_streak_days"], 0)
+        self.assertEqual(profile["longest_streak_days"], 0)
+
+    def test_five_days_in_a_row_ending_today(self):
+        for days_ago in range(5):
+            self.study_on_day(days_ago)
+
+        profile = self.profile()
+        self.assertEqual(profile["current_streak_days"], 5)
+        self.assertEqual(profile["longest_streak_days"], 5)
+
+    def test_a_missed_day_breaks_the_current_streak_but_not_the_record(self):
+        # Studied 6 days ago, missed 5, then 4 days in a row up to today.
+        self.study_on_day(6)
+        for days_ago in range(4):
+            self.study_on_day(days_ago)
+
+        profile = self.profile()
+        self.assertEqual(profile["current_streak_days"], 4)
+        self.assertEqual(profile["longest_streak_days"], 4)
+
+    def test_the_longest_streak_can_be_in_the_past(self):
+        # A five day run long ago, and only two days recently.
+        for days_ago in (30, 29, 28, 27, 26):
+            self.study_on_day(days_ago)
+        for days_ago in (1, 0):
+            self.study_on_day(days_ago)
+
+        profile = self.profile()
+        self.assertEqual(profile["current_streak_days"], 2)
+        self.assertEqual(profile["longest_streak_days"], 5)
+
+    def test_the_longest_streak_is_not_the_number_of_study_days(self):
+        # Six study days, but never two in a row.
+        for days_ago in (0, 2, 4, 6, 8, 10):
+            self.study_on_day(days_ago)
+
+        profile = self.profile()
+        self.assertEqual(profile["total_study_days"], 6)
+        self.assertEqual(profile["longest_streak_days"], 1)
+
+    def test_several_sessions_on_one_day_do_not_inflate_a_streak(self):
+        self.study_on_day(0)
+        self.study_on_day(0)
+        self.study_on_day(0)
+
+        profile = self.profile()
+        self.assertEqual(profile["current_streak_days"], 1)
+        self.assertEqual(profile["longest_streak_days"], 1)
+
+    def test_a_cancelled_session_does_not_extend_a_streak(self):
+        self.study_on_day(0)
+        self.study_on_day(1, focused_minutes=0, status=StudySession.Status.CANCELLED)
+        self.study_on_day(2)
+
+        profile = self.profile()
+        self.assertEqual(profile["current_streak_days"], 1)
+        self.assertEqual(profile["longest_streak_days"], 1)
+
+    def test_the_profile_streak_matches_the_dashboard_streak(self):
+        for days_ago in range(3):
+            self.study_on_day(days_ago)
+
+        dashboard = self.client.get(reverse("study-statistics")).data
+        self.assertEqual(
+            self.profile()["current_streak_days"], dashboard["current_streak_days"]
+        )
+
+
+class ProfileSubjectTests(StudyAPITestCase):
+    def profile(self):
+        return self.client.get(reverse("profile-statistics")).data
+
+    def test_subjects_are_totalled_and_sorted_by_time(self):
+        self.create_session(subject="JavaScript", planned_minutes=100, focused_minutes=100)
+        self.create_session(subject="JavaScript", planned_minutes=150, focused_minutes=150)
+        self.create_session(subject="React", planned_minutes=120, focused_minutes=120)
+        self.create_session(subject="React", planned_minutes=100, focused_minutes=100)
+        self.create_session(subject="Python", planned_minutes=90, focused_minutes=90)
+        self.create_session(subject="Django", planned_minutes=60, focused_minutes=60)
+        self.create_session(subject="", planned_minutes=30, focused_minutes=30)
+
+        subjects = self.profile()["subjects"]
+        self.assertEqual(
+            [(row["subject"], row["focused_minutes"]) for row in subjects],
+            [
+                ("JavaScript", 250),
+                ("React", 220),
+                ("Python", 90),
+                ("Django", 60),
+                ("", 30),
+            ],
+        )
+
+    def test_time_without_a_subject_is_kept_not_dropped(self):
+        self.create_session(subject="", planned_minutes=45, focused_minutes=45)
+
+        profile = self.profile()
+        self.assertEqual(profile["subjects"], [{"subject": "", "focused_minutes": 45, "sessions_count": 1}])
+        self.assertEqual(profile["total_focused_minutes"], 45)
+
+    def test_the_most_studied_subject_is_the_busiest_named_one(self):
+        self.create_session(subject="", planned_minutes=500, focused_minutes=500)
+        self.create_session(subject="Python", planned_minutes=60, focused_minutes=60)
+
+        # The unnamed block is larger, but "no subject" is not a subject.
+        self.assertEqual(self.profile()["most_studied_subject"], "Python")
+
+    def test_there_is_no_most_studied_subject_when_none_are_named(self):
+        self.create_session(subject="", planned_minutes=45, focused_minutes=45)
+
+        self.assertEqual(self.profile()["most_studied_subject"], "")
+
+
+class ProfilePrivacyTests(StudyAPITestCase):
+    def test_the_overview_carries_no_private_session_detail(self):
+        self.create_session(
+            subject="Python",
+            topic="Django REST",
+            notes="Learned how JWT refresh tokens work.",
+            planned_minutes=60,
+            focused_minutes=55,
+        )
+
+        body = str(self.client.get(reverse("profile-statistics")).data)
+        for secret in ("Django REST", "JWT refresh", "password", "@example.com"):
+            with self.subTest(secret=secret):
+                self.assertNotIn(secret, body)
+
+    def test_the_response_holds_only_the_overview_fields(self):
+        self.assertEqual(
+            set(self.client.get(reverse("profile-statistics")).data.keys()),
+            {
+                "total_focused_minutes",
+                "total_sessions",
+                "current_streak_days",
+                "longest_streak_days",
+                "average_session_minutes",
+                "total_study_days",
+                "most_studied_subject",
+                "subjects",
+            },
+        )

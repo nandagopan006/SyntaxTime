@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ProfileStatisticsView,
     StudySessionDetailView,
     StudySessionHistoryView,
     StudySessionListCreateView,
@@ -21,6 +22,7 @@ urlpatterns = [
         name="weekly-statistics",
     ),
     path("subjects/", SubjectTotalsView.as_view(), name="subject-totals"),
+    path("profile/", ProfileStatisticsView.as_view(), name="profile-statistics"),
 ]
 
 # Included separately under /api/goals/ by the project URLs.
