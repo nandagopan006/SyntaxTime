@@ -178,62 +178,166 @@ class OwnershipTests(StudyAPITestCase):
 
 
 class HistoryTests(StudyAPITestCase):
+    """
+    The History page reads this endpoint. Its responses are paginated, so the
+    sessions arrive under "results" rather than at the top level.
+    """
+
+    def get_history(self, params=None):
+        """Returns the sessions from one page of history."""
+        response = self.client.get(reverse("session-history"), params or {})
+        return response.data["results"]
+
+    def study_on_day(self, days_ago, **fields):
+        """Records a completed session that finished the given number of days ago."""
+        finished_at = timezone.now() - timedelta(days=days_ago)
+        return self.create_session(
+            started_at=finished_at - timedelta(minutes=50),
+            completed_at=finished_at,
+            **fields,
+        )
+
     def test_only_the_signed_in_users_sessions_are_returned(self):
         self.create_session(subject="JavaScript")
         self.create_session(user=self.abhay, subject="Django")
 
-        response = self.client.get(reverse("session-history"))
-        subjects = [item["subject"] for item in response.data]
+        subjects = [item["subject"] for item in self.get_history()]
         self.assertEqual(subjects, ["JavaScript"])
 
     def test_sessions_are_returned_newest_first(self):
+        self.study_on_day(2, subject="Older")
+        self.study_on_day(0, subject="Newer")
+
+        self.assertEqual(self.get_history()[0]["subject"], "Newer")
+
+    def test_sessions_are_ordered_by_when_they_finished(self):
+        # The long session starts earlier but finishes later, so ordering by
+        # the start time would put these the wrong way round.
+        now = timezone.now()
         self.create_session(
-            subject="Older", started_at=timezone.now() - timedelta(days=2)
+            subject="Long",
+            started_at=now - timedelta(minutes=90),
+            completed_at=now - timedelta(minutes=1),
         )
         self.create_session(
-            subject="Newer", started_at=timezone.now() - timedelta(hours=1)
+            subject="Short",
+            started_at=now - timedelta(minutes=60),
+            completed_at=now - timedelta(minutes=35),
         )
 
-        response = self.client.get(reverse("session-history"))
-        self.assertEqual(response.data[0]["subject"], "Newer")
+        self.assertEqual(
+            [item["subject"] for item in self.get_history()], ["Long", "Short"]
+        )
+
+    def test_cancelled_sessions_are_not_part_of_the_learning_record(self):
+        self.create_session(subject="Finished")
+        self.create_session(
+            subject="Abandoned",
+            focused_minutes=0,
+            status=StudySession.Status.CANCELLED,
+        )
+
+        subjects = [item["subject"] for item in self.get_history()]
+        self.assertEqual(subjects, ["Finished"])
 
     def test_filtering_by_subject(self):
         self.create_session(subject="JavaScript")
         self.create_session(subject="Django")
 
-        response = self.client.get(reverse("session-history"), {"subject": "django"})
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["subject"], "Django")
+        results = self.get_history({"subject": "django"})
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["subject"], "Django")
 
     def test_filtering_by_date(self):
-        self.create_session(
-            subject="Old", started_at=timezone.now() - timedelta(days=2)
-        )
+        self.study_on_day(2, subject="Old")
         self.create_session(subject="Today")
 
-        response = self.client.get(
-            reverse("session-history"), {"date": timezone.localdate().isoformat()}
-        )
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["subject"], "Today")
+        results = self.get_history({"date": timezone.localdate().isoformat()})
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["subject"], "Today")
 
     def test_filtering_by_date_range(self):
-        self.create_session(
-            subject="Old", started_at=timezone.now() - timedelta(days=10)
-        )
-        self.create_session(
-            subject="Recent", started_at=timezone.now() - timedelta(days=1)
-        )
+        self.study_on_day(10, subject="Old")
+        self.study_on_day(1, subject="Recent")
 
-        response = self.client.get(
-            reverse("session-history"),
+        results = self.get_history(
             {
                 "start_date": (timezone.localdate() - timedelta(days=3)).isoformat(),
                 "end_date": timezone.localdate().isoformat(),
-            },
+            }
         )
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["subject"], "Recent")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["subject"], "Recent")
+
+
+class HistorySearchTests(StudyAPITestCase):
+    """Searching is how a user finds a session they only half remember."""
+
+    def setUp(self):
+        super().setUp()
+        self.create_session(
+            subject="Python",
+            topic="Django REST",
+            notes="Learned how JWT access and refresh tokens work.",
+        )
+        self.create_session(
+            subject="JavaScript", topic="Promises", notes="Promise.all and race."
+        )
+        self.create_session(subject="", topic="", notes="")
+
+    def search(self, term):
+        response = self.client.get(reverse("session-history"), {"search": term})
+        return [item["subject"] for item in response.data["results"]]
+
+    def test_search_matches_the_notes(self):
+        self.assertEqual(self.search("JWT"), ["Python"])
+
+    def test_search_matches_the_subject(self):
+        self.assertEqual(self.search("javascript"), ["JavaScript"])
+
+    def test_search_matches_the_topic(self):
+        self.assertEqual(self.search("promises"), ["JavaScript"])
+
+    def test_search_ignores_case(self):
+        self.assertEqual(self.search("jwt"), ["Python"])
+
+    def test_search_with_no_match_returns_nothing(self):
+        self.assertEqual(self.search("kubernetes"), [])
+
+    def test_search_only_looks_at_the_signed_in_users_sessions(self):
+        self.create_session(user=self.abhay, subject="Rust", notes="JWT in Rust.")
+        self.assertEqual(self.search("JWT"), ["Python"])
+
+
+class HistoryPaginationTests(StudyAPITestCase):
+    def test_a_page_holds_twenty_sessions(self):
+        for _ in range(25):
+            self.create_session()
+
+        response = self.client.get(reverse("session-history"))
+        self.assertEqual(response.data["count"], 25)
+        self.assertEqual(len(response.data["results"]), 20)
+        self.assertIsNotNone(response.data["next"])
+
+    def test_the_last_page_holds_the_remainder(self):
+        for _ in range(25):
+            self.create_session()
+
+        response = self.client.get(reverse("session-history"), {"page": 2})
+        self.assertEqual(len(response.data["results"]), 5)
+        self.assertIsNone(response.data["next"])
+
+    def test_a_short_history_fits_on_one_page(self):
+        self.create_session()
+
+        response = self.client.get(reverse("session-history"))
+        self.assertEqual(response.data["count"], 1)
+        self.assertIsNone(response.data["next"])
+
+    def test_history_is_empty_for_a_user_with_no_sessions(self):
+        response = self.client.get(reverse("session-history"))
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
 
 
 class UpdateSessionTests(StudyAPITestCase):
@@ -281,6 +385,58 @@ class UpdateSessionTests(StudyAPITestCase):
 
         session.refresh_from_db()
         self.assertEqual(session.user, self.nandhu)
+
+    def test_the_update_answers_with_the_whole_session(self):
+        # History puts this response straight back into its list, so a reply
+        # holding only the edited fields would blank out the duration and times
+        # of the row the user just edited.
+        session = self.create_session(
+            subject="", topic="", notes="", planned_minutes=50, focused_minutes=47
+        )
+
+        response = self.client.patch(
+            reverse("session-detail", args=[session.id]),
+            {"subject": "Python"},
+            format="json",
+        )
+
+        self.assertEqual(response.data["subject"], "Python")
+        self.assertEqual(response.data["focused_minutes"], 47)
+        self.assertEqual(response.data["planned_minutes"], 50)
+        self.assertEqual(response.data["status"], "completed")
+        self.assertIsNotNone(response.data["started_at"])
+        self.assertIsNotNone(response.data["completed_at"])
+
+    def test_a_session_can_be_emptied_back_out(self):
+        session = self.create_session(subject="Python", topic="REST", notes="Notes.")
+
+        response = self.client.patch(
+            reverse("session-detail", args=[session.id]),
+            {"subject": "", "topic": "", "notes": ""},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        session.refresh_from_db()
+        self.assertEqual(session.subject, "")
+        self.assertEqual(session.notes, "")
+
+    def test_a_long_note_is_stored_whole(self):
+        # History previews long notes, but nothing may shorten what is stored.
+        # DRF strips whitespace from either end, so the note does not end in a
+        # space - that trimming is wanted, and only the length is under test.
+        session = self.create_session()
+        long_note = ("Learned about JWT refresh tokens. " * 60).strip()
+
+        self.client.patch(
+            reverse("session-detail", args=[session.id]),
+            {"notes": long_note},
+            format="json",
+        )
+
+        session.refresh_from_db()
+        self.assertEqual(session.notes, long_note)
+        self.assertGreater(len(session.notes), 1900)
 
 
 class DailyGoalTests(StudyAPITestCase):

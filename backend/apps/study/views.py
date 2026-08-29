@@ -1,5 +1,8 @@
+from django.db.models import Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -42,12 +45,16 @@ def get_own_sessions(request):
     if session_status:
         sessions = sessions.filter(status=session_status)
 
-    # Applied last, because a queryset cannot be filtered once it is sliced.
-    # This is what lets the dashboard ask for just the newest few sessions
-    # instead of downloading a user's whole history to show five rows.
-    limit = request.query_params.get("limit")
-    if limit and limit.isdigit():
-        sessions = sessions[: int(limit)]
+    # One box that looks through everything the user wrote down. Searching the
+    # notes matters most: "JWT" is the word someone remembers months later,
+    # and it is usually in the notes rather than in the subject.
+    search = request.query_params.get("search")
+    if search:
+        sessions = sessions.filter(
+            Q(subject__icontains=search)
+            | Q(topic__icontains=search)
+            | Q(notes__icontains=search)
+        )
 
     return sessions
 
@@ -58,7 +65,17 @@ class StudySessionListCreateView(generics.ListCreateAPIView):
     serializer_class = StudySessionSerializer
 
     def get_queryset(self):
-        return get_own_sessions(self.request)
+        sessions = get_own_sessions(self.request)
+
+        # Sliced here rather than in get_own_sessions, because a sliced queryset
+        # can no longer be filtered or reordered, and the History view below
+        # needs to do both. This is how the dashboard asks for just the newest
+        # few sessions instead of downloading a whole history to show five rows.
+        limit = self.request.query_params.get("limit")
+        if limit and limit.isdigit():
+            return sessions[: int(limit)]
+
+        return sessions
 
     def perform_create(self, serializer):
         # The owner comes from the JWT, never from the request body, so a user
@@ -66,13 +83,44 @@ class StudySessionListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
+class HistoryPagination(PageNumberPagination):
+    """
+    Pages the History list, and only the History list.
+
+    A user builds up study sessions forever, so this is the one endpoint that
+    would eventually return thousands of rows. It is set on the view instead of
+    in settings so the other endpoints keep returning a plain array, which is
+    what the dashboard already reads.
+    """
+
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class StudySessionHistoryView(generics.ListAPIView):
-    """The same sessions as the list endpoint, named for the History page."""
+    """
+    The completed sessions behind the History page, newest first.
+
+    Cancelled sessions are deliberately excluded rather than filterable:
+    History is the record of study that actually happened, and it is built from
+    the same sessions the statistics are.
+    """
 
     serializer_class = StudySessionSerializer
+    pagination_class = HistoryPagination
 
     def get_queryset(self):
-        return get_own_sessions(self.request)
+        return (
+            get_own_sessions(self.request)
+            .filter(status=StudySession.Status.COMPLETED)
+            # Ordered by when the work finished. A 90 minute session begun at
+            # 8pm ends after a 25 minute one begun at 8:30, so ordering by the
+            # start time would show them the wrong way round. created_at stands
+            # in for a session with no completion time, and the id makes the
+            # order fully deterministic when two sessions end together.
+            .order_by(Coalesce("completed_at", "created_at").desc(), "-id")
+        )
 
 
 class StudySessionDetailView(generics.RetrieveUpdateAPIView):

@@ -73,14 +73,37 @@ class StudySessionUpdateSerializer(serializers.ModelSerializer):
     """
     Lets the user fill in the optional details later from History.
 
-    Only these three fields are editable. The measured values - how long the
-    session ran and when - are facts recorded by the timer, and allowing them to
-    be edited afterwards would quietly corrupt every statistic built on them.
+    Only subject, topic and notes are editable. The measured values - how long
+    the session ran and when - are facts recorded by the timer, and allowing
+    them to be edited afterwards would quietly corrupt every statistic built on
+    them. They are still returned, as read-only fields, so a PATCH answers with
+    the whole session and History can put the updated row straight back into
+    its list without fetching it again.
     """
 
     class Meta:
         model = StudySession
-        fields = ("id", "subject", "topic", "notes")
+        fields = (
+            "id",
+            "subject",
+            "topic",
+            "planned_minutes",
+            "focused_minutes",
+            "started_at",
+            "completed_at",
+            "status",
+            "notes",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "planned_minutes",
+            "focused_minutes",
+            "started_at",
+            "completed_at",
+            "status",
+            "created_at",
+        )
         extra_kwargs = {
             "subject": {"required": False, "allow_blank": True, "allow_null": True},
             "topic": {"required": False, "allow_blank": True, "allow_null": True},

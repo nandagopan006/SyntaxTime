@@ -40,3 +40,32 @@ export async function updateTodayGoal(targetMinutes) {
   });
   return response.data;
 }
+
+/**
+ * Returns one page of the user's completed study history.
+ *
+ * The filters the History page builds - subject, date range and search - are
+ * passed straight through as query parameters, so the database does the
+ * filtering rather than the browser downloading everything and sifting it.
+ */
+export async function getStudyHistory(params = {}) {
+  const response = await api.get("/study/history/", { params });
+  return response.data;
+}
+
+/**
+ * Updates the optional details of a session that has already been recorded.
+ *
+ * Only subject, topic and notes can be sent: how long the session ran and when
+ * it happened are measurements, and the API rejects attempts to change them.
+ */
+export async function updateStudySession(id, details) {
+  const response = await api.patch(`/study/sessions/${id}/`, details);
+  return response.data;
+}
+
+/** Returns every subject the user has studied, for the History filter. */
+export async function getSubjectTotals() {
+  const response = await api.get("/study/subjects/");
+  return response.data;
+}
