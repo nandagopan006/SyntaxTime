@@ -1,5 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+import { saveStudySession } from "../statistics/statisticsSlice";
+
 /*
   The one active timer.
 
@@ -173,13 +175,20 @@ const timerSlice = createSlice({
     },
 
     /**
-     * Wipes the timer back to its initial state, after a session is saved or
-     * discarded, or once a break is skipped or over. Because the initial mode
-     * is "focus", this is also how a break ends.
+     * Wipes the timer back to its initial state, after a session is discarded,
+     * or once a break is skipped or over. Because the initial mode is "focus",
+     * this is also how a break ends.
      */
     clearTimer() {
       return initialState;
     },
+  },
+  extraReducers: (builder) => {
+    // A saved session clears itself here rather than through a separate
+    // dispatch. The statistics slice takes the same action to add the session
+    // to today's saved total, so the minutes leave the timer and arrive in the
+    // total in one state change, and are never counted in both at once.
+    builder.addCase(saveStudySession.fulfilled, () => initialState);
   },
 });
 

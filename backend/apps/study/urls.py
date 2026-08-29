@@ -7,6 +7,7 @@ from .views import (
     SubjectTotalsView,
     TodayGoalView,
     TodayStatisticsView,
+    WeeklyStatisticsView,
 )
 
 urlpatterns = [
@@ -14,6 +15,11 @@ urlpatterns = [
     path("sessions/<int:pk>/", StudySessionDetailView.as_view(), name="session-detail"),
     path("history/", StudySessionHistoryView.as_view(), name="session-history"),
     path("statistics/", TodayStatisticsView.as_view(), name="study-statistics"),
+    path(
+        "statistics/weekly/",
+        WeeklyStatisticsView.as_view(),
+        name="weekly-statistics",
+    ),
     path("subjects/", SubjectTotalsView.as_view(), name="subject-totals"),
 ]
 

@@ -9,7 +9,7 @@ from .serializers import (
     StudySessionSerializer,
     StudySessionUpdateSerializer,
 )
-from .services import get_subject_totals, get_today_statistics
+from .services import get_subject_totals, get_today_statistics, get_weekly_statistics
 
 
 def get_own_sessions(request):
@@ -37,6 +37,17 @@ def get_own_sessions(request):
     end_date = request.query_params.get("end_date")
     if end_date:
         sessions = sessions.filter(started_at__date__lte=end_date)
+
+    session_status = request.query_params.get("status")
+    if session_status:
+        sessions = sessions.filter(status=session_status)
+
+    # Applied last, because a queryset cannot be filtered once it is sliced.
+    # This is what lets the dashboard ask for just the newest few sessions
+    # instead of downloading a user's whole history to show five rows.
+    limit = request.query_params.get("limit")
+    if limit and limit.isdigit():
+        sessions = sessions[: int(limit)]
 
     return sessions
 
@@ -81,6 +92,13 @@ class TodayStatisticsView(APIView):
 
     def get(self, request):
         return Response(get_today_statistics(request.user))
+
+
+class WeeklyStatisticsView(APIView):
+    """Focused minutes per day for the current week, Monday to Sunday."""
+
+    def get(self, request):
+        return Response(get_weekly_statistics(request.user))
 
 
 class SubjectTotalsView(APIView):

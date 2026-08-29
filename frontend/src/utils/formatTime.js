@@ -36,6 +36,15 @@ export function formatStudyTime(totalSeconds) {
   return `${hours}h ${minutes}m`;
 }
 
+/**
+ * Formats saved study minutes from the API as a readable duration.
+ * The API counts in whole minutes; every display goes through the same
+ * formatter as the live timer, so the two can never drift apart in wording.
+ */
+export function formatStudyMinutes(totalMinutes) {
+  return formatStudyTime(totalMinutes * 60);
+}
+
 /** Percentage of the daily target reached, safely handling a target of zero. */
 export function calculateProgressPercent(focusedSeconds, targetMinutes) {
   if (targetMinutes <= 0) {

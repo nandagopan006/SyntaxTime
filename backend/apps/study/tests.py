@@ -416,3 +416,186 @@ class SubjectTotalsTests(StudyAPITestCase):
         )
         response = self.client.get(reverse("subject-totals"))
         self.assertNotIn("Rust", [row["subject"] for row in response.data])
+
+
+class StreakTests(StudyAPITestCase):
+    """The streak is the run of consecutive days ending today or yesterday."""
+
+    def study_on_day(self, days_ago, **fields):
+        """Records a completed session that started the given number of days ago."""
+        started_at = timezone.now() - timedelta(days=days_ago)
+        return self.create_session(
+            started_at=started_at, completed_at=started_at + timedelta(minutes=47), **fields
+        )
+
+    def get_streak(self):
+        return self.client.get(reverse("study-statistics")).data["current_streak_days"]
+
+    def test_streak_is_zero_without_sessions(self):
+        self.assertEqual(self.get_streak(), 0)
+
+    def test_three_consecutive_days_give_a_streak_of_three(self):
+        self.study_on_day(0)
+        self.study_on_day(1)
+        self.study_on_day(2)
+        self.assertEqual(self.get_streak(), 3)
+
+    def test_several_sessions_on_one_day_count_once(self):
+        self.study_on_day(0)
+        self.study_on_day(0)
+        self.study_on_day(1)
+        self.assertEqual(self.get_streak(), 2)
+
+    def test_a_missed_day_ends_the_streak(self):
+        self.study_on_day(0)
+        self.study_on_day(1)
+        self.study_on_day(3)  # the gap at day 2 stops the count here
+        self.assertEqual(self.get_streak(), 2)
+
+    def test_streak_survives_a_day_that_has_not_been_studied_yet(self):
+        # Studied yesterday, nothing today yet. The day is not over, so the
+        # streak should still stand.
+        self.study_on_day(1)
+        self.study_on_day(2)
+        self.assertEqual(self.get_streak(), 2)
+
+    def test_streak_is_zero_after_missing_a_whole_day(self):
+        self.study_on_day(2)
+        self.study_on_day(3)
+        self.assertEqual(self.get_streak(), 0)
+
+    def test_cancelled_sessions_do_not_extend_the_streak(self):
+        self.study_on_day(0)
+        self.study_on_day(1, status=StudySession.Status.CANCELLED)
+        self.study_on_day(2)
+        self.assertEqual(self.get_streak(), 1)
+
+    def test_another_users_sessions_do_not_extend_the_streak(self):
+        self.study_on_day(0)
+        self.study_on_day(1, user=self.abhay)
+        self.assertEqual(self.get_streak(), 1)
+
+
+class AverageSessionTests(StudyAPITestCase):
+    def get_average(self):
+        return self.client.get(reverse("study-statistics")).data["average_session_minutes"]
+
+    def test_average_is_zero_without_sessions(self):
+        self.assertEqual(self.get_average(), 0)
+
+    def test_average_of_completed_sessions(self):
+        self.create_session(planned_minutes=50, focused_minutes=50)
+        self.create_session(planned_minutes=40, focused_minutes=40)
+        self.create_session(planned_minutes=30, focused_minutes=30)
+        self.assertEqual(self.get_average(), 40)
+
+    def test_average_is_rounded_to_whole_minutes(self):
+        self.create_session(planned_minutes=50, focused_minutes=47)
+        self.create_session(planned_minutes=50, focused_minutes=46)
+        self.create_session(planned_minutes=50, focused_minutes=50)
+        self.assertEqual(self.get_average(), 48)  # 143 / 3 is 47.67
+
+    def test_cancelled_sessions_are_excluded_from_the_average(self):
+        self.create_session(planned_minutes=60, focused_minutes=60)
+        self.create_session(
+            planned_minutes=60, focused_minutes=0, status=StudySession.Status.CANCELLED
+        )
+        self.assertEqual(self.get_average(), 60)
+
+
+class TodaySubjectsTests(StudyAPITestCase):
+    """The dashboard shows how today's focused time is split between subjects."""
+
+    def get_subjects(self):
+        response = self.client.get(reverse("study-statistics"))
+        return {row["subject"]: row["focused_minutes"] for row in response.data["subjects"]}
+
+    def test_subjects_are_empty_without_sessions(self):
+        self.assertEqual(self.get_subjects(), {})
+
+    def test_todays_sessions_are_grouped_by_subject(self):
+        self.create_session(subject="JavaScript", planned_minutes=60, focused_minutes=60)
+        self.create_session(subject="JavaScript", planned_minutes=40, focused_minutes=40)
+        self.create_session(subject="Django", planned_minutes=42, focused_minutes=42)
+        self.assertEqual(self.get_subjects(), {"JavaScript": 100, "Django": 42})
+
+    def test_a_session_without_a_subject_is_kept_as_its_own_group(self):
+        self.create_session(subject="", planned_minutes=25, focused_minutes=25)
+        self.assertEqual(self.get_subjects(), {"": 25})
+
+    def test_earlier_days_are_not_included(self):
+        started_at = timezone.now() - timedelta(days=3)
+        self.create_session(
+            subject="React",
+            started_at=started_at,
+            completed_at=started_at + timedelta(minutes=45),
+            planned_minutes=45,
+            focused_minutes=45,
+        )
+        self.assertEqual(self.get_subjects(), {})
+
+
+class WeeklyStatisticsTests(StudyAPITestCase):
+    def get_days(self):
+        return self.client.get(reverse("weekly-statistics")).data["days"]
+
+    def test_the_week_always_has_seven_days(self):
+        days = self.get_days()
+        self.assertEqual(len(days), 7)
+
+    def test_the_week_runs_monday_to_sunday(self):
+        response = self.client.get(reverse("weekly-statistics"))
+        self.assertEqual(response.data["start_date"].weekday(), 0)
+        self.assertEqual(response.data["end_date"].weekday(), 6)
+
+    def test_days_without_study_are_returned_as_zero(self):
+        self.assertEqual([day["focused_minutes"] for day in self.get_days()], [0] * 7)
+
+    def test_todays_sessions_are_summed_into_todays_day(self):
+        self.create_session(planned_minutes=50, focused_minutes=47)
+        self.create_session(planned_minutes=30, focused_minutes=25)
+
+        today = timezone.localdate()
+        totals = {day["date"]: day["focused_minutes"] for day in self.get_days()}
+        self.assertEqual(totals[today], 72)
+
+    def test_cancelled_sessions_are_excluded(self):
+        self.create_session(
+            planned_minutes=50, focused_minutes=0, status=StudySession.Status.CANCELLED
+        )
+        self.assertEqual([day["focused_minutes"] for day in self.get_days()], [0] * 7)
+
+    def test_another_users_sessions_are_excluded(self):
+        self.create_session(user=self.abhay, planned_minutes=50, focused_minutes=47)
+        self.assertEqual([day["focused_minutes"] for day in self.get_days()], [0] * 7)
+
+
+class RecentSessionsTests(StudyAPITestCase):
+    """The dashboard asks the session list for the newest few completed sessions."""
+
+    def test_limit_returns_only_that_many_sessions(self):
+        for _ in range(8):
+            self.create_session()
+
+        response = self.client.get(reverse("session-list"), {"limit": 5})
+        self.assertEqual(len(response.data), 5)
+
+    def test_limited_sessions_are_still_newest_first(self):
+        older = self.create_session(started_at=timezone.now() - timedelta(hours=3))
+        newer = self.create_session(started_at=timezone.now() - timedelta(hours=1))
+
+        response = self.client.get(reverse("session-list"), {"limit": 2})
+        self.assertEqual([row["id"] for row in response.data], [newer.id, older.id])
+
+    def test_filtering_by_status_excludes_cancelled_sessions(self):
+        self.create_session()
+        self.create_session(focused_minutes=0, status=StudySession.Status.CANCELLED)
+
+        response = self.client.get(reverse("session-list"), {"status": "completed"})
+        self.assertEqual(len(response.data), 1)
+
+    def test_an_invalid_limit_is_ignored_rather_than_failing(self):
+        self.create_session()
+        response = self.client.get(reverse("session-list"), {"limit": "many"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)

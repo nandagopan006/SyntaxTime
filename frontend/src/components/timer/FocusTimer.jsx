@@ -2,7 +2,11 @@ import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
-import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
+import {
+  fetchRecentSessions,
+  fetchWeeklyStatistics,
+  saveStudySession,
+} from "../../features/statistics/statisticsSlice";
 import {
   clearTimer,
   finishTimer,
@@ -16,8 +20,6 @@ import {
   startTimer,
 } from "../../features/timer/timerSlice";
 import { enterFocusMode } from "../../features/ui/uiSlice";
-import { getErrorMessage } from "../../services/api";
-import { createStudySession } from "../../services/studyService";
 import { formatTime } from "../../utils/formatTime";
 import { buildSessionPayload } from "../../utils/studySession";
 import BreakTimer from "./BreakTimer";
@@ -93,24 +95,28 @@ function FocusTimer() {
     setSaveState("saving");
     setSaveError("");
 
-    try {
-      await createStudySession(buildSessionPayload(completedSession, details));
-    } catch (error) {
+    // One action writes the session, refreshes today's total and clears the
+    // timer, so the minutes can never be counted in the total and the running
+    // session at the same time.
+    const result = await dispatch(
+      saveStudySession(buildSessionPayload(completedSession, details))
+    );
+
+    if (saveStudySession.rejected.match(result)) {
       // Let the user try again, and leave the timer untouched so the focused
       // time is still counted in today's total.
       hasSavedRef.current = false;
       setSaveState("failed");
-      setSaveError(getErrorMessage(error, "Unable to save this session."));
+      setSaveError(result.payload ?? "Unable to save this session.");
       return;
     }
 
     setSaveState("saved");
 
-    // These two belong together. The refreshed total now includes the minutes
-    // just saved, and clearing the timer removes the same minutes from the
-    // active contribution, so the session is counted exactly once.
-    await dispatch(fetchTodayStatistics());
-    dispatch(clearTimer());
+    // The rest of the dashboard is not part of the live total, so it catches
+    // up on its own.
+    dispatch(fetchWeeklyStatistics());
+    dispatch(fetchRecentSessions());
   }
 
   /** Saves the session together with whatever details the user filled in. */
