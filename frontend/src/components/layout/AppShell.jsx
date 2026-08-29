@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom";
 
 import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
 import { useTimer } from "../../hooks/useTimer";
+import FocusMode from "../timer/FocusMode";
 import FocusTimerPopup from "../timer/FocusTimerPopup";
 
 import Sidebar from "./Sidebar";
@@ -22,9 +23,10 @@ function AppShell() {
 
   const dispatch = useDispatch();
   const isFocusPopupOpen = useSelector((state) => state.ui.isFocusPopupOpen);
+  const isFocusModeActive = useSelector((state) => state.ui.isFocusModeActive);
 
   // Loaded once here rather than in Home, so today's total is already
-  // available to the compact popup and Focus Mode later on.
+  // available to the compact popup and to Focus Mode.
   useEffect(() => {
     dispatch(fetchTodayStatistics());
   }, [dispatch]);
@@ -44,6 +46,11 @@ function AppShell() {
       {/* Rendered by the shell rather than a page, so it floats above the
           application and survives moving between routes. */}
       {isFocusPopupOpen && <FocusTimerPopup />}
+
+      {/* Covers the whole application, including the popup above. It is only
+          another view of the same timer, so mounting and unmounting it here
+          leaves the running session completely untouched. */}
+      {isFocusModeActive && <FocusMode />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -10,8 +10,9 @@ import {
   resetTimer,
   resumeTimer,
 } from "../../features/timer/timerSlice";
-import { closeFocusPopup } from "../../features/ui/uiSlice";
+import { closeFocusPopup, enterFocusMode } from "../../features/ui/uiSlice";
 import { formatStudyTime, formatTime } from "../../utils/formatTime";
+import BreakTimer from "./BreakTimer";
 import TimerControls from "./TimerControls";
 
 const POPUP_WIDTH = 320;
@@ -105,6 +106,7 @@ function FocusTimerPopup() {
     navigate("/");
   }
 
+  const isBreak = timer.mode === "break";
   const hasSession = timer.isRunning || timer.isPaused || timer.isCompleted;
 
   return (
@@ -120,7 +122,7 @@ function FocusTimerPopup() {
         className="flex items-center justify-between border-b border-rule px-4 py-2.5 cursor-grab active:cursor-grabbing select-none"
       >
         <span className="font-display text-sm text-ink">
-          Focus &middot; SyntaxTime
+          {isBreak ? "Break" : "Focus"} &middot; SyntaxTime
         </span>
 
         <button
@@ -143,6 +145,18 @@ function FocusTimerPopup() {
           >
             Start focus
           </button>
+        </div>
+      ) : isBreak ? (
+        /* A break is the same shared timer, so the popup shows the same
+           component Home shows rather than a second break view of its own. */
+        <div className="px-5 pb-5 pt-4">
+          <BreakTimer compact />
+
+          <p className="mt-4 border-t border-rule pt-3 text-center text-sm text-ink-muted">
+            Today: <span className="text-ink tabular-nums">
+              {formatStudyTime(liveTodaySeconds)}
+            </span>
+          </p>
         </div>
       ) : (
         <div className="px-5 pb-5 pt-4">
@@ -189,6 +203,17 @@ function FocusTimerPopup() {
               />
             )}
           </div>
+
+          {!timer.isCompleted && (
+            <button
+              type="button"
+              onClick={() => dispatch(enterFocusMode())}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded px-3 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+            >
+              <Maximize2 size={16} aria-hidden="true" />
+              Focus mode
+            </button>
+          )}
         </div>
       )}
     </section>

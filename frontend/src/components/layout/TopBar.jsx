@@ -24,6 +24,7 @@ function TopBar() {
   // Only offered when there is something to show, so the bar stays quiet
   // when no session is running.
   const hasSession = timer.isRunning || timer.isPaused || timer.isCompleted;
+  const isBreak = timer.mode === "break";
 
   /** Clears the session and returns the user to the login page. */
   function handleLogout() {
@@ -46,7 +47,7 @@ function TopBar() {
             className="flex items-center gap-2 rounded border border-rule px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
           >
             <Timer size={16} aria-hidden="true" />
-            Focus timer
+            {isBreak ? "Break timer" : "Focus timer"}
           </button>
         )}
 

@@ -1,3 +1,4 @@
+import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -11,12 +12,15 @@ import {
   setDuration,
   setSubject,
   setTopic,
+  startBreak,
   startTimer,
 } from "../../features/timer/timerSlice";
+import { enterFocusMode } from "../../features/ui/uiSlice";
 import { getErrorMessage } from "../../services/api";
 import { createStudySession } from "../../services/studyService";
 import { formatTime } from "../../utils/formatTime";
 import { buildSessionPayload } from "../../utils/studySession";
+import BreakTimer from "./BreakTimer";
 import DurationSelector from "./DurationSelector";
 import SessionCompletion from "./SessionCompletion";
 import TimerControls from "./TimerControls";
@@ -46,17 +50,20 @@ function FocusTimer() {
   // times the save is triggered.
   const hasSavedRef = useRef(false);
 
-  // Start on a sensible default so the user can press Start immediately.
+  // Start on a sensible default so the user can press Start immediately. A
+  // break carries its own length, so it must not be overwritten here.
   useEffect(() => {
-    if (timer.durationSeconds === 0) {
+    if (timer.mode === "focus" && timer.durationSeconds === 0) {
       dispatch(setDuration(DEFAULT_MINUTES * 60));
     }
-  }, [timer.durationSeconds, dispatch]);
+  }, [timer.mode, timer.durationSeconds, dispatch]);
 
   // Both ways of finishing - the countdown reaching zero and the Finish button -
   // set isCompleted, so the completion form opens from a single place.
   useEffect(() => {
-    if (!timer.isCompleted) {
+    // A break reaches zero through the same action, but it has nothing to
+    // record, so it must never open the completion form.
+    if (!timer.isCompleted || timer.mode !== "focus") {
       return;
     }
 
@@ -72,10 +79,10 @@ function FocusTimer() {
           topic: timer.topic,
         }
     );
-    // Depending only on isCompleted means this runs when the session ends,
+    // Depending only on these two means this runs when the session ends,
     // rather than on every tick of the countdown.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer.isCompleted]);
+  }, [timer.isCompleted, timer.mode]);
 
   async function saveSession(details) {
     if (hasSavedRef.current) {
@@ -121,12 +128,39 @@ function FocusTimer() {
   }
 
   /** Closes the finished session and returns the card to its idle state. */
-  function handleDone() {
+  function closeCompletedSession() {
     hasSavedRef.current = false;
     setCompletedSession(null);
     setSaveState("idle");
     setSaveError("");
     dispatch(clearTimer());
+  }
+
+  /**
+   * Starts the break using the length the user chose.
+   *
+   * Only reachable once the session has been saved, and it runs on the same
+   * timer, so the break can neither be mistaken for study time nor create a
+   * second countdown.
+   */
+  function handleStartBreak(minutes) {
+    closeCompletedSession();
+    dispatch(startBreak({ durationSeconds: minutes * 60, now: Date.now() }));
+  }
+
+  /** Declines the break. The saved session is untouched either way. */
+  function handleSkipBreak() {
+    closeCompletedSession();
+  }
+
+  // Checked before the completion form, because a break only ever starts once
+  // that form has been closed.
+  if (timer.mode === "break") {
+    return (
+      <section className="bg-surface border border-rule rounded-lg p-8">
+        <BreakTimer />
+      </section>
+    );
   }
 
   if (completedSession) {
@@ -139,7 +173,8 @@ function FocusTimer() {
         errorMessage={saveError}
         onSave={handleSaveSession}
         onSkip={handleSkipDetails}
-        onDone={handleDone}
+        onStartBreak={handleStartBreak}
+        onSkipBreak={handleSkipBreak}
       />
     );
   }
@@ -205,18 +240,33 @@ function FocusTimer() {
         )}
       </div>
 
-      <TimerControls
-        isRunning={timer.isRunning}
-        isPaused={timer.isPaused}
-        canStart={timer.durationSeconds > 0}
-        onStart={() =>
-          dispatch(startTimer({ startedAt: new Date().toISOString(), now: Date.now() }))
-        }
-        onPause={() => dispatch(pauseTimer(Date.now()))}
-        onResume={() => dispatch(resumeTimer(Date.now()))}
-        onReset={() => dispatch(resetTimer())}
-        onFinish={() => dispatch(finishTimer(Date.now()))}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <TimerControls
+          isRunning={timer.isRunning}
+          isPaused={timer.isPaused}
+          canStart={timer.durationSeconds > 0}
+          onStart={() =>
+            dispatch(startTimer({ startedAt: new Date().toISOString(), now: Date.now() }))
+          }
+          onPause={() => dispatch(pauseTimer(Date.now()))}
+          onResume={() => dispatch(resumeTimer(Date.now()))}
+          onReset={() => dispatch(resetTimer())}
+          onFinish={() => dispatch(finishTimer(Date.now()))}
+        />
+
+        {/* Offered only once a session exists, because focus mode has nothing
+            to show before then. It changes the view and never the timer. */}
+        {isActive && (
+          <button
+            type="button"
+            onClick={() => dispatch(enterFocusMode())}
+            className="flex items-center gap-2 rounded border border-rule px-5 py-2.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+          >
+            <Maximize2 size={16} aria-hidden="true" />
+            Focus mode
+          </button>
+        )}
+      </div>
     </section>
   );
 }

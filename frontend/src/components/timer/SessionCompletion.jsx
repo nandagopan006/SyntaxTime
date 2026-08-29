@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { formatStudyTime } from "../../utils/formatTime";
+import BreakOffer from "./BreakOffer";
 
 /*
   Shown once a focus session ends.
@@ -9,6 +10,10 @@ import { formatStudyTime } from "../../utils/formatTime";
   nothing here is required. The form only invites the user to record what they
   studied, which is what turns History into a memory rather than a list of
   durations. Skip saves the session too.
+
+  The break is offered only from the saved state below. A break must never
+  follow a session that failed to reach the database, because that would look
+  like the work had been recorded when it had not.
 */
 function SessionCompletion({
   focusedSeconds,
@@ -18,7 +23,8 @@ function SessionCompletion({
   errorMessage,
   onSave,
   onSkip,
-  onDone,
+  onStartBreak,
+  onSkipBreak,
 }) {
   // These values only matter inside this form until it is submitted, so they
   // stay in local state. The timer itself remains the shared Redux state.
@@ -49,13 +55,8 @@ function SessionCompletion({
           <p className="mt-1 text-sm text-ink-muted">
             You can add or change the details later from History.
           </p>
-          <button
-            type="button"
-            onClick={onDone}
-            className="mt-5 rounded bg-ink px-5 py-2.5 text-sm text-parchment"
-          >
-            Done
-          </button>
+
+          <BreakOffer onStartBreak={onStartBreak} onSkipBreak={onSkipBreak} />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-8 border-t border-rule pt-6">

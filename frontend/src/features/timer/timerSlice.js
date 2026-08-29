@@ -1,10 +1,13 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 /*
-  The one active focus session.
+  The one active timer.
 
-  Home, and later the compact popup and Focus Mode, all read this same state, so
-  the views can never disagree about how much time is left.
+  Home, the compact popup and Focus Mode all read this same state, so the views
+  can never disagree about how much time is left.
+
+  `mode` says what is being counted down. A focus session accrues study time and
+  can be saved; a break is the same countdown with none of that meaning.
 
   Time is measured from a timestamp rather than by counting ticks. setInterval is
   not precise - a background browser tab can fire it far less often than once a
@@ -37,8 +40,14 @@ function applyElapsedTime(state, now) {
 
   const elapsed = Math.floor((now - state.runningSince) / 1000);
 
-  state.elapsedFocusSeconds = Math.min(elapsed, state.durationSeconds);
   state.remainingSeconds = Math.max(state.durationSeconds - elapsed, 0);
+
+  // A break counts down through this same reducer, but its seconds are not
+  // study time. Guarding the write here is what keeps break minutes out of
+  // today's total, rather than every view having to remember to exclude them.
+  if (state.mode === "focus") {
+    state.elapsedFocusSeconds = Math.min(elapsed, state.durationSeconds);
+  }
 }
 
 const timerSlice = createSlice({
@@ -59,8 +68,26 @@ const timerSlice = createSlice({
       state.topic = action.payload;
     },
 
-    setMode(state, action) {
-      state.mode = action.payload;
+    /**
+     * Switches the one timer over to a break.
+     *
+     * A break is a countdown and nothing more: it has no subject, no topic and
+     * no start timestamp, because it will never become a StudySession.
+     */
+    startBreak(state, action) {
+      const { durationSeconds, now } = action.payload;
+
+      state.mode = "break";
+      state.durationSeconds = durationSeconds;
+      state.remainingSeconds = durationSeconds;
+      state.elapsedFocusSeconds = 0;
+      state.isRunning = true;
+      state.isPaused = false;
+      state.isCompleted = false;
+      state.subject = "";
+      state.topic = "";
+      state.startedAt = null;
+      state.runningSince = now;
     },
 
     /**
@@ -107,8 +134,11 @@ const timerSlice = createSlice({
       }
 
       // Shift the measuring point forward by the pause, so the seconds spent
-      // paused never count as focused time.
-      state.runningSince = action.payload - state.elapsedFocusSeconds * 1000;
+      // paused are never counted. The elapsed time is read back from the
+      // countdown rather than from elapsedFocusSeconds, because a break leaves
+      // that value at zero and would otherwise resume from the beginning.
+      const elapsedSeconds = state.durationSeconds - state.remainingSeconds;
+      state.runningSince = action.payload - elapsedSeconds * 1000;
       state.isRunning = true;
       state.isPaused = false;
     },
@@ -142,7 +172,11 @@ const timerSlice = createSlice({
       state.runningSince = null;
     },
 
-    /** Wipes the timer back to its initial state, after a session is saved or discarded. */
+    /**
+     * Wipes the timer back to its initial state, after a session is saved or
+     * discarded, or once a break is skipped or over. Because the initial mode
+     * is "focus", this is also how a break ends.
+     */
     clearTimer() {
       return initialState;
     },
@@ -153,7 +187,7 @@ export const {
   setDuration,
   setSubject,
   setTopic,
-  setMode,
+  startBreak,
   startTimer,
   tickTimer,
   pauseTimer,
