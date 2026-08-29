@@ -139,6 +139,50 @@ Included in this phase:
 - `.gitignore` covering dependencies, secrets and build output
 - `requirements.txt` for backend dependencies
 
+## Friends API
+
+A `Friendship` row records the connection between two users and how it came
+about. It is a table of its own rather than a field on `User`, because being
+someone's friend has a lifecycle: it is asked for, then answered.
+
+| Field | Meaning |
+| --- | --- |
+| `sender` | who asked |
+| `receiver` | who was asked, and the only one who may answer |
+| `status` | `pending`, `accepted` or `rejected` |
+
+One row covers a pair for good. Accepting changes that row's status; a second
+row is never created, so nobody appears twice in anybody's friends list.
+
+### Endpoints
+
+All require authentication. The sender of a request is always taken from the
+JWT, never from the request body.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/friends/` | accepted friendships |
+| `DELETE` | `/api/friends/<id>/` | end a friendship (either person) |
+| `GET` | `/api/friends/search/?search=abh` | find users, with your relationship to each |
+| `GET` | `/api/friends/requests/` | requests waiting for you |
+| `GET` | `/api/friends/requests/?direction=outgoing` | requests you have sent |
+| `POST` | `/api/friends/requests/` | send one, body `{"receiver_id": 15}` |
+| `PATCH` | `/api/friends/requests/<id>/` | answer one, body `{"status": "accepted"}` |
+
+### Flow
+
+    search -> send request -> pending -> receiver accepts -> friends
+
+Rejecting sets the status to `rejected` and nothing more. It declines one
+request; the pair can ask again later, because a rejection is not a block.
+
+### Privacy
+
+Friendship shares a username and an id, and nothing else. Study notes, session
+history, subjects, topics and email addresses are never part of any friends
+response. The leaderboard in a later phase needs only aggregate focused
+minutes, so no further access is required.
+
 ## Not implemented yet
 
 These belong to later phases and are intentionally absent:
@@ -151,6 +195,6 @@ These belong to later phases and are intentionally absent:
 - API endpoints
 - Focus timer, Focus Mode and the timer popup
 - History, statistics, streaks and live daily study time
-- Friends and leaderboard
+- The friends leaderboard (the friendships behind it now exist)
 - Profile
 - Neo-classical visual design

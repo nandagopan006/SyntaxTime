@@ -9,16 +9,31 @@ export async function createStudySession(sessionData) {
 /**
  * Returns today's saved study totals, plus the streak, average session length
  * and today's subject split that the Home dashboard shows alongside them.
+ *
+ * Every field is given a value here even if the response leaves it out. An
+ * older or half-deployed backend answering without "subjects" should cost the
+ * dashboard one card, not take the whole application down.
  */
 export async function getTodayStatistics() {
   const response = await api.get("/study/statistics/");
-  return response.data;
+  const data = response.data ?? {};
+
+  return {
+    today_focused_minutes: data.today_focused_minutes ?? 0,
+    today_sessions_count: data.today_sessions_count ?? 0,
+    daily_target_minutes: data.daily_target_minutes ?? 0,
+    current_streak_days: data.current_streak_days ?? 0,
+    average_session_minutes: data.average_session_minutes ?? 0,
+    subjects: Array.isArray(data.subjects) ? data.subjects : [],
+  };
 }
 
 /** Returns focused minutes for each day of the current week, Monday to Sunday. */
 export async function getWeeklyStatistics() {
   const response = await api.get("/study/statistics/weekly/");
-  return response.data;
+  const days = response.data?.days;
+
+  return { days: Array.isArray(days) ? days : [] };
 }
 
 /**
@@ -30,7 +45,8 @@ export async function getRecentSessions(limit = 5) {
   const response = await api.get("/study/sessions/", {
     params: { status: "completed", limit },
   });
-  return response.data;
+
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 /** Sets today's study target, in minutes. */
@@ -50,7 +66,17 @@ export async function updateTodayGoal(targetMinutes) {
  */
 export async function getStudyHistory(params = {}) {
   const response = await api.get("/study/history/", { params });
-  return response.data;
+  const data = response.data ?? {};
+
+  // A paginated response is expected. An unpaginated one - an array - is still
+  // read correctly rather than leaving the page with no results to render.
+  const results = Array.isArray(data) ? data : data.results;
+
+  return {
+    results: Array.isArray(results) ? results : [],
+    count: data.count ?? (Array.isArray(results) ? results.length : 0),
+    next: data.next ?? null,
+  };
 }
 
 /**
@@ -67,5 +93,6 @@ export async function updateStudySession(id, details) {
 /** Returns every subject the user has studied, for the History filter. */
 export async function getSubjectTotals() {
   const response = await api.get("/study/subjects/");
-  return response.data;
+
+  return Array.isArray(response.data) ? response.data : [];
 }

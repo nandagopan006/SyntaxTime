@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "apps.accounts",
     "apps.study",
+    "apps.friends",
 ]
 
 MIDDLEWARE = [

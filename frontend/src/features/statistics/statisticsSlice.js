@@ -78,14 +78,20 @@ export const saveStudySession = createAsyncThunk(
   }
 );
 
-/** Copies an API statistics response into the slice. */
+/**
+ * Copies an API statistics response into the slice.
+ *
+ * Missing values fall back to the empty version of themselves. The components
+ * below read state.subjects.length directly, so storing undefined here would
+ * throw during render, and a throw during render blanks the whole page.
+ */
 function applyTodayStatistics(state, statistics) {
-  state.todayFocusedMinutes = statistics.today_focused_minutes;
-  state.todaySessionsCount = statistics.today_sessions_count;
-  state.dailyTargetMinutes = statistics.daily_target_minutes;
-  state.currentStreakDays = statistics.current_streak_days;
-  state.averageSessionMinutes = statistics.average_session_minutes;
-  state.subjects = statistics.subjects;
+  state.todayFocusedMinutes = statistics.today_focused_minutes ?? 0;
+  state.todaySessionsCount = statistics.today_sessions_count ?? 0;
+  state.dailyTargetMinutes = statistics.daily_target_minutes ?? 0;
+  state.currentStreakDays = statistics.current_streak_days ?? 0;
+  state.averageSessionMinutes = statistics.average_session_minutes ?? 0;
+  state.subjects = Array.isArray(statistics.subjects) ? statistics.subjects : [];
 }
 
 const initialState = {
@@ -142,7 +148,9 @@ const statisticsSlice = createSlice({
       })
       .addCase(fetchWeeklyStatistics.fulfilled, (state, action) => {
         state.isWeeklyLoading = false;
-        state.weeklyDays = action.payload.days;
+        state.weeklyDays = Array.isArray(action.payload?.days)
+          ? action.payload.days
+          : [];
       })
       .addCase(fetchWeeklyStatistics.rejected, (state) => {
         state.isWeeklyLoading = false;
@@ -155,7 +163,7 @@ const statisticsSlice = createSlice({
       })
       .addCase(fetchRecentSessions.fulfilled, (state, action) => {
         state.isRecentLoading = false;
-        state.recentSessions = action.payload;
+        state.recentSessions = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchRecentSessions.rejected, (state) => {
         state.isRecentLoading = false;
