@@ -15,8 +15,10 @@ import {
 } from "../../features/timer/timerSlice";
 import { getErrorMessage } from "../../services/api";
 import { createStudySession } from "../../services/studyService";
-import { formatTime, toFocusedMinutes } from "../../utils/formatTime";
+import { formatTime } from "../../utils/formatTime";
+import { buildSessionPayload } from "../../utils/studySession";
 import DurationSelector from "./DurationSelector";
+import SessionCompletion from "./SessionCompletion";
 import TimerControls from "./TimerControls";
 
 const DEFAULT_MINUTES = 25;
@@ -25,22 +27,23 @@ const DEFAULT_MINUTES = 25;
  * The focus session card on Home.
  *
  * Reads the timer from Redux and turns button clicks into timer actions. The
- * countdown runs in useTimer and saving happens through studyService, so this
- * component composes the two rather than owning either.
+ * countdown runs in useTimer, the completion form lives in SessionCompletion,
+ * and saving goes through studyService, so this component coordinates rather
+ * than owning any of them.
  */
 function FocusTimer() {
   const dispatch = useDispatch();
   const timer = useSelector((state) => state.timer);
 
-  // A snapshot of the finished session. Kept in local state because the Redux
-  // timer is cleared as soon as the session is saved, and the summary must
-  // stay on screen after that.
+  // A snapshot of the finished session, taken before anything is saved. The
+  // Redux timer is cleared once the save succeeds, and the summary has to stay
+  // on screen after that.
   const [completedSession, setCompletedSession] = useState(null);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | failed
   const [saveError, setSaveError] = useState("");
 
-  // A session must be saved once, even though it can complete two ways: the
-  // countdown reaching zero, or the user pressing Finish.
+  // One finished session must produce exactly one saved record, however many
+  // times the save is triggered.
   const hasSavedRef = useRef(false);
 
   // Start on a sensible default so the user can press Start immediately.
@@ -50,43 +53,47 @@ function FocusTimer() {
     }
   }, [timer.durationSeconds, dispatch]);
 
+  // Both ways of finishing - the countdown reaching zero and the Finish button -
+  // set isCompleted, so the completion form opens from a single place.
   useEffect(() => {
-    if (!timer.isCompleted || hasSavedRef.current) {
+    if (!timer.isCompleted) {
       return;
     }
 
-    hasSavedRef.current = true;
-
-    const plannedMinutes = Math.round(timer.durationSeconds / 60);
-    const session = {
-      planned_minutes: plannedMinutes,
-      focused_minutes: toFocusedMinutes(timer.elapsedFocusSeconds, plannedMinutes),
-      subject: timer.subject,
-      topic: timer.topic,
-      started_at: timer.startedAt,
-      completed_at: new Date().toISOString(),
-      status: "completed",
-      notes: "",
-    };
-
-    setCompletedSession(session);
-    saveSession(session);
-    // The timer values are frozen once the session completes, so this only
-    // needs to run at the moment it finishes.
+    // The functional form keeps the first snapshot, so a re-render can never
+    // overwrite it with values the user has since edited.
+    setCompletedSession(
+      (existing) =>
+        existing ?? {
+          durationSeconds: timer.durationSeconds,
+          elapsedFocusSeconds: timer.elapsedFocusSeconds,
+          startedAt: timer.startedAt,
+          subject: timer.subject,
+          topic: timer.topic,
+        }
+    );
+    // Depending only on isCompleted means this runs when the session ends,
+    // rather than on every tick of the countdown.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timer.isCompleted]);
 
-  async function saveSession(session) {
+  async function saveSession(details) {
+    if (hasSavedRef.current) {
+      return;
+    }
+    hasSavedRef.current = true;
+
     setSaveState("saving");
     setSaveError("");
 
     try {
-      await createStudySession(session);
+      await createStudySession(buildSessionPayload(completedSession, details));
     } catch (error) {
-      // The timer is deliberately left untouched, so the focused time is still
-      // counted in today's total and the user can try again.
+      // Let the user try again, and leave the timer untouched so the focused
+      // time is still counted in today's total.
+      hasSavedRef.current = false;
       setSaveState("failed");
-      setSaveError(getErrorMessage(error, "Could not save this session."));
+      setSaveError(getErrorMessage(error, "Unable to save this session."));
       return;
     }
 
@@ -99,11 +106,21 @@ function FocusTimer() {
     dispatch(clearTimer());
   }
 
-  function handleStart() {
-    dispatch(startTimer({ startedAt: new Date().toISOString(), now: Date.now() }));
+  /** Saves the session together with whatever details the user filled in. */
+  function handleSaveSession(details) {
+    saveSession(details);
   }
 
-  /** Dismisses the finished session and returns the card to its idle state. */
+  /** Saves the session without the optional details. Skip never discards it. */
+  function handleSkipDetails() {
+    saveSession({
+      subject: completedSession.subject,
+      topic: completedSession.topic,
+      notes: "",
+    });
+  }
+
+  /** Closes the finished session and returns the card to its idle state. */
   function handleDone() {
     hasSavedRef.current = false;
     setCompletedSession(null);
@@ -112,68 +129,23 @@ function FocusTimer() {
     dispatch(clearTimer());
   }
 
-  const selectedMinutes = Math.round(timer.durationSeconds / 60);
-  const isActive = timer.isRunning || timer.isPaused;
-
   if (completedSession) {
     return (
-      <section className="bg-surface border border-rule rounded-lg p-8">
-        <h2 className="font-display text-2xl text-ink">Session complete</h2>
-
-        <p className="mt-6 text-ink-muted text-sm">Focused</p>
-        <p className="font-display text-5xl text-ink tabular-nums">
-          {completedSession.focused_minutes} min
-        </p>
-
-        <dl className="mt-6 space-y-1 text-sm">
-          <div className="flex gap-2">
-            <dt className="text-ink-muted w-20">Subject</dt>
-            <dd className="text-ink">{completedSession.subject || "General Study"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="text-ink-muted w-20">Topic</dt>
-            <dd className="text-ink">{completedSession.topic || "No topic added"}</dd>
-          </div>
-        </dl>
-
-        <div className="mt-8 border-t border-rule pt-6">
-          {saveState === "saving" && (
-            <p className="text-sm text-ink-muted">Saving session...</p>
-          )}
-
-          {saveState === "saved" && (
-            <p className="text-sm text-forest">Session saved.</p>
-          )}
-
-          {saveState === "failed" && (
-            <div>
-              <p className="text-sm text-burgundy">{saveError}</p>
-              <p className="mt-1 text-sm text-ink-muted">
-                This session is not in your history yet, and is still counted in
-                today&apos;s total below.
-              </p>
-              <button
-                type="button"
-                onClick={() => saveSession(completedSession)}
-                className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink hover:bg-surface-sunken"
-              >
-                Try again
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={handleDone}
-            disabled={saveState === "saving"}
-            className="mt-4 block rounded bg-ink px-5 py-2.5 text-sm text-parchment disabled:opacity-50"
-          >
-            Done
-          </button>
-        </div>
-      </section>
+      <SessionCompletion
+        focusedSeconds={completedSession.elapsedFocusSeconds}
+        defaultSubject={completedSession.subject}
+        defaultTopic={completedSession.topic}
+        saveState={saveState}
+        errorMessage={saveError}
+        onSave={handleSaveSession}
+        onSkip={handleSkipDetails}
+        onDone={handleDone}
+      />
     );
   }
+
+  const selectedMinutes = Math.round(timer.durationSeconds / 60);
+  const isActive = timer.isRunning || timer.isPaused;
 
   return (
     <section className="bg-surface border border-rule rounded-lg p-8">
@@ -237,7 +209,9 @@ function FocusTimer() {
         isRunning={timer.isRunning}
         isPaused={timer.isPaused}
         canStart={timer.durationSeconds > 0}
-        onStart={handleStart}
+        onStart={() =>
+          dispatch(startTimer({ startedAt: new Date().toISOString(), now: Date.now() }))
+        }
         onPause={() => dispatch(pauseTimer(Date.now()))}
         onResume={() => dispatch(resumeTimer(Date.now()))}
         onReset={() => dispatch(resetTimer())}
