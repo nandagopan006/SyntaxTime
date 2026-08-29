@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 
+import Section from "../ui/Section";
 import SearchResult from "./SearchResult";
 
 /*
@@ -18,12 +19,8 @@ function UserSearch({
   onSendRequest,
 }) {
   return (
-    <section aria-labelledby="search-heading">
-      <h2 id="search-heading" className="text-xs uppercase tracking-[0.15em] text-brass">
-        Find people
-      </h2>
-
-      <div className="relative mt-3">
+    <Section title="Find people">
+      <div className="relative">
         <Search
           size={16}
           aria-hidden="true"
@@ -38,7 +35,7 @@ function UserSearch({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search username..."
-          className="w-full rounded border border-rule bg-surface py-2 pl-9 pr-3 text-sm focus-visible:outline-2 focus-visible:outline-brass"
+          className="field-control pl-9"
         />
       </div>
 
@@ -70,7 +67,7 @@ function UserSearch({
           </ul>
         )}
       </div>
-    </section>
+    </Section>
   );
 }
 

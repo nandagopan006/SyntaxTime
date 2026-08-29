@@ -20,15 +20,31 @@ import {
   startTimer,
 } from "../../features/timer/timerSlice";
 import { enterFocusMode } from "../../features/ui/uiSlice";
-import { formatTime } from "../../utils/formatTime";
-import { buildSessionPayload } from "../../utils/studySession";
+import {
+  SUBJECT_MAX_LENGTH,
+  TOPIC_MAX_LENGTH,
+  buildSessionPayload,
+} from "../../utils/studySession";
+import Button from "../ui/Button";
 import BreakTimer from "./BreakTimer";
-import { SUBJECT_MAX_LENGTH, TOPIC_MAX_LENGTH } from "../../utils/studySession";
 import DurationSelector from "./DurationSelector";
 import SessionCompletion from "./SessionCompletion";
 import TimerControls from "./TimerControls";
+import TimerDial from "./TimerDial";
 
 const DEFAULT_MINUTES = 25;
+
+/**
+ * The one word describing what the timer is doing.
+ *
+ * Written out rather than shown only as a colour, so the state is readable
+ * without seeing the ring.
+ */
+function getTimerStatus(timer) {
+  if (timer.isPaused) return "Paused";
+  if (timer.isRunning) return "Focus";
+  return "Ready";
+}
 
 /**
  * The focus session card on Home.
@@ -164,7 +180,7 @@ function FocusTimer() {
   // that form has been closed.
   if (timer.mode === "break") {
     return (
-      <section className="bg-surface border border-rule rounded-lg p-8">
+      <section className="surface-card p-8">
         <BreakTimer />
       </section>
     );
@@ -190,66 +206,30 @@ function FocusTimer() {
   const isActive = timer.isRunning || timer.isPaused;
 
   return (
-    <section className="bg-surface border border-rule rounded-lg p-8">
-      <h2 className="font-display text-2xl text-ink mb-6">Focus session</h2>
-
-      <DurationSelector
-        selectedMinutes={selectedMinutes}
-        onSelect={(minutes) => dispatch(setDuration(minutes * 60))}
-        disabled={isActive}
-      />
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-ink-muted" htmlFor="subject">
-            Subject <span className="text-ink-faint">(optional)</span>
-          </label>
-          <input
-            id="subject"
-            type="text"
-            value={timer.subject}
-            onChange={(event) => dispatch(setSubject(event.target.value))}
-            placeholder="JavaScript"
-            maxLength={SUBJECT_MAX_LENGTH}
-            className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-ink-muted" htmlFor="topic">
-            Topic <span className="text-ink-faint">(optional)</span>
-          </label>
-          <input
-            id="topic"
-            type="text"
-            value={timer.topic}
-            onChange={(event) => dispatch(setTopic(event.target.value))}
-            placeholder="Promises"
-            maxLength={TOPIC_MAX_LENGTH}
-            className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
-
-      <div className="my-10 text-center">
-        <p
-          className="font-display text-7xl text-ink tabular-nums"
-          role="timer"
-          aria-live="off"
-        >
-          {formatTime(timer.remainingSeconds)}
-        </p>
+    <section className="surface-card p-8">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="section-eyebrow font-sans">Focus session</h2>
 
         {isActive && (
-          <p className="mt-2 text-sm text-ink-muted">
-            {timer.subject || "General Study"} &middot;{" "}
-            {timer.topic || "No topic added"}
-            {timer.isPaused && " · Paused"}
+          <p className="text-sm text-ink-muted">
+            {timer.subject || "General Study"}
+            <span className="text-ink-faint"> · {timer.topic || "No topic added"}</span>
           </p>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* The countdown leads. Everything needed to set one up sits below it,
+          so the first thing on the page is always the study itself. */}
+      <div className="mt-6">
+        <TimerDial
+          remainingSeconds={timer.remainingSeconds}
+          durationSeconds={timer.durationSeconds}
+          status={getTimerStatus(timer)}
+          isBreak={false}
+        />
+      </div>
+
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <TimerControls
           isRunning={timer.isRunning}
           isPaused={timer.isPaused}
@@ -266,15 +246,57 @@ function FocusTimer() {
         {/* Offered only once a session exists, because focus mode has nothing
             to show before then. It changes the view and never the timer. */}
         {isActive && (
-          <button
-            type="button"
-            onClick={() => dispatch(enterFocusMode())}
-            className="flex items-center gap-2 rounded border border-rule px-5 py-2.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
-          >
+          <Button variant="quiet" onClick={() => dispatch(enterFocusMode())}>
             <Maximize2 size={16} aria-hidden="true" />
             Focus mode
-          </button>
+          </Button>
         )}
+      </div>
+
+      <div className="mt-8 space-y-5 border-t border-rule pt-6">
+        <DurationSelector
+          selectedMinutes={selectedMinutes}
+          onSelect={(minutes) => dispatch(setDuration(minutes * 60))}
+          disabled={isActive}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              className="block text-sm font-medium text-ink-muted"
+              htmlFor="subject"
+            >
+              Subject <span className="text-ink-faint">(optional)</span>
+            </label>
+            <input
+              id="subject"
+              type="text"
+              value={timer.subject}
+              onChange={(event) => dispatch(setSubject(event.target.value))}
+              placeholder="JavaScript"
+              maxLength={SUBJECT_MAX_LENGTH}
+              className="field-control mt-1.5"
+            />
+          </div>
+
+          <div>
+            <label
+              className="block text-sm font-medium text-ink-muted"
+              htmlFor="topic"
+            >
+              Topic <span className="text-ink-faint">(optional)</span>
+            </label>
+            <input
+              id="topic"
+              type="text"
+              value={timer.topic}
+              onChange={(event) => dispatch(setTopic(event.target.value))}
+              placeholder="Promises"
+              maxLength={TOPIC_MAX_LENGTH}
+              className="field-control mt-1.5"
+            />
+          </div>
+        </div>
       </div>
     </section>
   );

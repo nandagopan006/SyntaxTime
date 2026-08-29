@@ -1,4 +1,8 @@
+import { CalendarSearch, NotebookPen } from "lucide-react";
 import { Link } from "react-router-dom";
+
+import Button from "../ui/Button";
+import EmptyState from "../ui/EmptyState";
 
 /*
   What History says when there is nothing to show.
@@ -11,37 +15,33 @@ import { Link } from "react-router-dom";
 function HistoryEmptyState({ hasActiveFilters, onResetFilters }) {
   if (hasActiveFilters) {
     return (
-      <div>
-        <p className="text-sm text-ink-muted">No sessions found.</p>
-        <p className="mt-1 text-sm text-ink-faint">
-          Try another subject or date range.
-        </p>
-
-        <button
-          type="button"
-          onClick={onResetFilters}
-          className="mt-4 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
-        >
-          Clear filters
-        </button>
-      </div>
+      <EmptyState
+        icon={CalendarSearch}
+        title="No sessions found."
+        description="Try another subject or date range."
+        action={
+          <Button variant="secondary" onClick={onResetFilters}>
+            Clear filters
+          </Button>
+        }
+      />
     );
   }
 
   return (
-    <div>
-      <p className="text-sm text-ink-muted">No study sessions yet.</p>
-      <p className="mt-1 text-sm text-ink-faint">
-        Start your first focus session to build your learning history.
-      </p>
-
-      <Link
-        to="/"
-        className="mt-4 inline-block rounded bg-ink px-5 py-2.5 text-sm text-parchment focus-visible:outline-2 focus-visible:outline-brass"
-      >
-        Start studying
-      </Link>
-    </div>
+    <EmptyState
+      icon={NotebookPen}
+      title="No study sessions yet."
+      description="Start your first focus session to build your learning history."
+      action={
+        <Link
+          to="/"
+          className="inline-flex items-center rounded-md border border-ink bg-ink px-4 py-2 text-sm font-medium text-parchment transition-colors hover:bg-ink/90"
+        >
+          Start studying
+        </Link>
+      }
+    />
   );
 }
 

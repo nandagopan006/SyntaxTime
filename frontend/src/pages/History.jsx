@@ -5,6 +5,9 @@ import HistoryEmptyState from "../components/history/HistoryEmptyState";
 import HistoryFilters from "../components/history/HistoryFilters";
 import SessionDetails from "../components/history/SessionDetails";
 import StudySessionList from "../components/history/StudySessionList";
+import Button from "../components/ui/Button";
+import LoadingState from "../components/ui/LoadingState";
+import PageHeader from "../components/ui/PageHeader";
 import { getStudyHistory, getSubjectTotals } from "../services/studyService";
 import { DEFAULT_FILTERS, buildHistoryParams } from "../utils/historyFilters";
 
@@ -165,13 +168,10 @@ function History() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="font-display text-3xl text-ink">Study history</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Your learning record: what you studied, for how long, and what you
-          took away from it.
-        </p>
-      </header>
+      <PageHeader
+        title="Study history"
+        description="Your learning record: what you studied, for how long, and what you took away from it."
+      />
 
       <HistoryFilters
         filters={filters}
@@ -185,7 +185,7 @@ function History() {
       <div className="grid gap-8 border-t border-rule pt-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
         <div>
           {status === "loading" && (
-            <p className="text-sm text-ink-faint">Loading your study history...</p>
+            <LoadingState label="Loading your study history" lines={5} />
           )}
 
           {status === "failed" && (
@@ -193,13 +193,13 @@ function History() {
               <p className="text-sm text-burgundy">
                 Unable to load your study history.
               </p>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => setReloadCount((count) => count + 1)}
-                className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+                className="mt-3"
               >
                 Try again
-              </button>
+              </Button>
             </div>
           )}
 
@@ -234,14 +234,16 @@ function History() {
               )}
 
               {hasMore && (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                  className="mt-6 w-full rounded border border-rule px-4 py-2.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
+                  isBusy={isLoadingMore}
+                  busyLabel="Loading..."
+                  fullWidth
+                  className="mt-6"
                 >
-                  {isLoadingMore ? "Loading..." : "Load older sessions"}
-                </button>
+                  Load older sessions
+                </Button>
               )}
             </>
           )}
@@ -249,7 +251,7 @@ function History() {
 
         <aside
           aria-label="Session details"
-          className="rounded-lg border border-rule bg-surface p-6 lg:sticky lg:top-6"
+          className="surface-card p-6 lg:sticky lg:top-0"
         >
           {!selectedSession ? (
             <p className="text-sm text-ink-faint">

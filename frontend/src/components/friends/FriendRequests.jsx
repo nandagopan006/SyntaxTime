@@ -1,3 +1,4 @@
+import Section from "../ui/Section";
 import FriendRequestItem from "./FriendRequestItem";
 
 /*
@@ -16,15 +17,8 @@ function FriendRequests({
   onReject,
 }) {
   return (
-    <section aria-labelledby="requests-heading">
-      <h2
-        id="requests-heading"
-        className="text-xs uppercase tracking-[0.15em] text-brass"
-      >
-        Friend requests
-      </h2>
-
-      <div className="mt-3">
+    <Section title="Friend requests">
+      <div>
         {status === "loading" && (
           <p className="text-sm text-ink-faint">Loading requests...</p>
         )}
@@ -66,7 +60,7 @@ function FriendRequests({
           </ul>
         </div>
       )}
-    </section>
+    </Section>
   );
 }
 

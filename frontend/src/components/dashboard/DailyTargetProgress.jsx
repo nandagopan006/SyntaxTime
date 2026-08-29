@@ -5,6 +5,7 @@ import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice"
 import { getErrorMessage } from "../../services/api";
 import { updateTodayGoal } from "../../services/studyService";
 import { calculateProgressPercent, formatStudyMinutes } from "../../utils/formatTime";
+import Button from "../ui/Button";
 
 /*
   Today's study target and how close the user is to it.
@@ -79,25 +80,20 @@ function DailyTargetProgress({ focusedSeconds }) {
             onChange={(event) => setDraftMinutes(event.target.value)}
             placeholder="240"
             disabled={isSaving}
-            className="w-24 rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
+            className="field-control w-24"
           />
 
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </button>
+          <Button type="submit" variant="primary" isBusy={isSaving} busyLabel="Saving...">
+            Save
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => setIsEditing(false)}
             disabled={isSaving}
-            className="rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
           >
             Cancel
-          </button>
+          </Button>
         </div>
 
         {saveError && (
@@ -119,19 +115,15 @@ function DailyTargetProgress({ focusedSeconds }) {
           </span>
         </span>
 
-        <button
-          type="button"
-          onClick={startEditing}
-          className="rounded px-2 py-1 text-sm text-brass hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-brass"
-        >
+        <Button variant="quiet" size="sm" onClick={startEditing}>
           {hasTarget ? "Edit" : "Set target"}
-        </button>
+        </Button>
       </div>
 
       {hasTarget && (
         <>
           <div
-            className="mt-2 h-2 rounded bg-surface-sunken overflow-hidden"
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-sunken"
             role="progressbar"
             aria-valuenow={progressPercent}
             aria-valuemin={0}
@@ -139,7 +131,7 @@ function DailyTargetProgress({ focusedSeconds }) {
             aria-label="Progress toward today's study target"
           >
             <div
-              className="h-full bg-brass"
+              className="h-full rounded-full bg-brass transition-[width] duration-500 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>

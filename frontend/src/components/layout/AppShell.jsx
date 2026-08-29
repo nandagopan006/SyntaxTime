@@ -32,14 +32,18 @@ function AppShell() {
   }, [dispatch]);
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
 
-        <main className="flex-1 p-6 lg:p-8">
-          <Outlet />
+        {/* Capped, because a study page stretched across a wide monitor is
+            harder to read, not easier. */}
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-6xl">
+            <Outlet />
+          </div>
         </main>
       </div>
 

@@ -10,15 +10,13 @@ function ProfileHeader({ username, totalFocusedMinutes }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-6 border-b border-rule pb-6">
       <div>
-        <h1 className="font-display text-3xl text-ink">{username}</h1>
-        <p className="mt-1 text-sm text-ink-muted">Your study journey so far</p>
+        <h1 className="text-3xl text-ink">{username}</h1>
+        <p className="mt-1.5 text-sm text-ink-muted">Your study journey so far</p>
       </div>
 
       <div className="text-left sm:text-right">
-        <p className="text-xs uppercase tracking-[0.15em] text-brass">
-          Total focused
-        </p>
-        <p className="mt-1 font-display text-4xl text-ink tabular-nums">
+        <p className="section-eyebrow">Total focused</p>
+        <p className="mt-1 text-4xl leading-none text-ink tabular-nums font-display">
           {formatStudyMinutes(totalFocusedMinutes)}
         </p>
       </div>

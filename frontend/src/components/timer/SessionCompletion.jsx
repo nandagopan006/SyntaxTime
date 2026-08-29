@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { formatStudyTime } from "../../utils/formatTime";
 import { SUBJECT_MAX_LENGTH, TOPIC_MAX_LENGTH } from "../../utils/studySession";
+import Button from "../ui/Button";
 import BreakOffer from "./BreakOffer";
 
 /*
@@ -42,11 +43,11 @@ function SessionCompletion({
   }
 
   return (
-    <section className="bg-surface border border-rule rounded-lg p-8">
-      <h2 className="font-display text-2xl text-ink">Session complete</h2>
+    <section className="surface-card p-8">
+      <p className="section-eyebrow">Session complete</p>
 
-      <p className="mt-6 text-sm text-ink-muted">Focused</p>
-      <p className="font-display text-5xl text-ink tabular-nums">
+      <p className="mt-4 text-sm text-ink-muted">You focused for</p>
+      <p className="mt-1 text-5xl leading-none text-ink tabular-nums font-display">
         {formatStudyTime(focusedSeconds)}
       </p>
 
@@ -81,7 +82,7 @@ function SessionCompletion({
                   onChange={(event) => setSubject(event.target.value)}
                   placeholder="Python"
                   maxLength={SUBJECT_MAX_LENGTH}
-                  className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
+                  className="field-control mt-1.5"
                 />
               </div>
 
@@ -99,7 +100,7 @@ function SessionCompletion({
                   onChange={(event) => setTopic(event.target.value)}
                   placeholder="Django REST authentication"
                   maxLength={TOPIC_MAX_LENGTH}
-                  className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
+                  className="field-control mt-1.5"
                 />
               </div>
             </div>
@@ -117,7 +118,7 @@ function SessionCompletion({
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 placeholder="Learned how JWT refresh tokens work."
-                className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
+                className="field-control mt-1.5"
               />
             </div>
           </fieldset>
@@ -133,22 +134,18 @@ function SessionCompletion({
           )}
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button
+            <Button
               type="submit"
-              disabled={isSaving}
-              className="rounded bg-ink px-5 py-2.5 text-sm text-parchment disabled:opacity-50"
+              variant="primary"
+              isBusy={isSaving}
+              busyLabel="Saving session..."
             >
-              {isSaving ? "Saving session..." : "Save session"}
-            </button>
+              Save session
+            </Button>
 
-            <button
-              type="button"
-              onClick={onSkip}
-              disabled={isSaving}
-              className="rounded border border-rule px-5 py-2.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-50"
-            >
+            <Button variant="secondary" onClick={onSkip} disabled={isSaving}>
               Skip
-            </button>
+            </Button>
 
             <span className="text-sm text-ink-faint">
               Skip still saves the session, just without these details.

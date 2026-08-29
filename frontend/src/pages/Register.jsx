@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../services/api";
 
@@ -55,9 +56,10 @@ function Register() {
     <main className="min-h-screen flex items-center justify-center bg-parchment p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-surface border border-rule rounded-lg p-8"
+        className="surface-card w-full max-w-sm p-8 shadow-panel"
       >
-        <h1 className="font-display text-3xl text-ink">Create account</h1>
+        <p className="section-eyebrow">Syntax<span className="text-ink-faint">Time</span></p>
+        <h1 className="mt-2 text-3xl text-ink">Create account</h1>
         <p className="mt-1 mb-6 text-sm text-ink-muted">Start using SyntaxTime.</p>
 
         <label className="block text-sm font-medium text-ink" htmlFor="username">
@@ -69,7 +71,7 @@ function Register() {
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           autoComplete="username"
-          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
+          className="field-control mt-1.5 mb-4"
         />
 
         <label className="block text-sm font-medium text-ink" htmlFor="email">
@@ -81,7 +83,7 @@ function Register() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           autoComplete="email"
-          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
+          className="field-control mt-1.5 mb-4"
         />
 
         <label className="block text-sm font-medium text-ink" htmlFor="password">
@@ -93,7 +95,7 @@ function Register() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="new-password"
-          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
+          className="field-control mt-1.5 mb-4"
         />
 
         <label
@@ -108,22 +110,25 @@ function Register() {
           value={passwordConfirm}
           onChange={(event) => setPasswordConfirm(event.target.value)}
           autoComplete="new-password"
-          className="mt-1 mb-4 w-full rounded border border-rule px-3 py-2"
+          className="field-control mt-1.5 mb-4"
         />
 
-        {error && <p className="mb-4 text-sm text-burgundy">{error}</p>}
+        {error && (
+          <p
+            role="alert"
+            className="mb-4 rounded-md border border-burgundy/25 bg-burgundy/5 px-3 py-2 text-sm text-burgundy"
+          >
+            {error}
+          </p>
+        )}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded bg-ink px-4 py-2 text-white disabled:opacity-60"
-        >
-          {isSubmitting ? "Creating account..." : "Create account"}
-        </button>
+        <Button type="submit" variant="primary" fullWidth isBusy={isSubmitting} busyLabel="Creating account...">
+          Create account
+        </Button>
 
         <p className="mt-6 text-sm text-ink-muted">
           Already have an account?{" "}
-          <Link to="/login" className="text-ink underline">
+          <Link to="/login" className="text-brass underline underline-offset-2 hover:text-brass-deep">
             Sign in
           </Link>
         </p>

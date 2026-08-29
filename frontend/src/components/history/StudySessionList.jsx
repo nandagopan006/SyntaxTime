@@ -38,8 +38,11 @@ function StudySessionList({ sessions, selectedId, onSelect }) {
     <div className="space-y-8">
       {groups.map((group) => (
         <section key={group.label} aria-label={group.label}>
-          <h3 className="text-xs uppercase tracking-[0.15em] text-brass">
+          {/* A date reads as a divider rather than a title: the sessions beneath
+              it are the content. */}
+          <h3 className="flex items-center gap-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">
             {group.label}
+            <span aria-hidden="true" className="h-px flex-1 bg-rule" />
           </h3>
 
           <ul className="mt-3 space-y-2">

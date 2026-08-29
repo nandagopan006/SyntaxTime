@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import Button from "../ui/Button";
+
 const BREAK_MINUTES = [5, 10, 15];
 const DEFAULT_BREAK_MINUTES = 10;
 
@@ -15,7 +17,7 @@ function BreakOffer({ onStartBreak, onSkipBreak }) {
 
   return (
     <div className="mt-6 border-t border-rule pt-6">
-      <p className="font-display text-lg text-ink">Take a break?</p>
+      <p className="text-lg text-ink font-display">Take a break?</p>
       <p className="mt-1 text-sm text-ink-muted">
         A break is a timer only. It is never added to your study time.
       </p>
@@ -31,10 +33,10 @@ function BreakOffer({ onStartBreak, onSkipBreak }) {
               onClick={() => setSelectedMinutes(minutes)}
               aria-pressed={selectedMinutes === minutes}
               className={[
-                "rounded border px-4 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brass",
+                "rounded-md border px-4 py-2 text-sm transition-colors",
                 selectedMinutes === minutes
-                  ? "border-brass bg-surface-sunken text-ink font-medium"
-                  : "border-rule text-ink-muted hover:bg-surface-sunken/60 hover:text-ink",
+                  ? "border-brass bg-brass-wash font-medium text-ink"
+                  : "border-rule bg-surface-raised text-ink-muted hover:border-rule-strong hover:text-ink",
               ].join(" ")}
             >
               {minutes} min
@@ -44,21 +46,13 @@ function BreakOffer({ onStartBreak, onSkipBreak }) {
       </fieldset>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => onStartBreak(selectedMinutes)}
-          className="rounded bg-ink px-5 py-2.5 text-sm text-parchment focus-visible:outline-2 focus-visible:outline-brass"
-        >
+        <Button variant="primary" onClick={() => onStartBreak(selectedMinutes)}>
           Start break
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          onClick={onSkipBreak}
-          className="rounded border border-rule px-5 py-2.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
-        >
+        <Button variant="secondary" onClick={onSkipBreak}>
           Skip break
-        </button>
+        </Button>
       </div>
     </div>
   );

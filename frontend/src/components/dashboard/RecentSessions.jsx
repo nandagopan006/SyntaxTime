@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { fetchRecentSessions } from "../../features/statistics/statisticsSlice";
 import { formatSessionDate } from "../../utils/formatDate";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import Button from "../ui/Button";
 import DashboardSection from "./DashboardSection";
 
 /*
@@ -21,7 +22,7 @@ function RecentSessions() {
   const historyLink = (
     <Link
       to="/history"
-      className="rounded px-2 py-1 text-sm text-brass hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-brass"
+      className="rounded-md px-2 py-1 text-sm text-brass transition-colors hover:bg-brass-wash"
     >
       All sessions
     </Link>
@@ -33,13 +34,13 @@ function RecentSessions() {
         <p className="text-sm text-burgundy" role="alert">
           Unable to load your recent sessions.
         </p>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => dispatch(fetchRecentSessions())}
-          className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+          className="mt-3"
         >
           Try again
-        </button>
+        </Button>
       </DashboardSection>
     );
   }

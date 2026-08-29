@@ -39,7 +39,7 @@ function HistoryFilters({
               value={searchInput}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="JWT, Promises, useMemo..."
-              className="w-full rounded border border-rule py-2 pl-9 pr-3 text-sm focus-visible:outline-2 focus-visible:outline-brass"
+              className="field-control pl-9"
             />
           </div>
         </div>
@@ -52,7 +52,7 @@ function HistoryFilters({
             id="history-subject"
             value={filters.subject}
             onChange={(event) => onFiltersChange({ subject: event.target.value })}
-            className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-brass"
+            className="field-control mt-1.5"
           >
             <option value="">All subjects</option>
             {subjects.map((subject) => (
@@ -75,10 +75,10 @@ function HistoryFilters({
               onClick={() => onFiltersChange({ dateRange: range.value })}
               aria-pressed={filters.dateRange === range.value}
               className={[
-                "rounded border px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-brass",
+                "rounded-md border px-3 py-1.5 text-sm transition-colors",
                 filters.dateRange === range.value
-                  ? "border-brass bg-surface-sunken text-ink font-medium"
-                  : "border-rule text-ink-muted hover:bg-surface-sunken/60 hover:text-ink",
+                  ? "border-brass bg-brass-wash font-medium text-ink"
+                  : "border-rule bg-surface-raised text-ink-muted hover:border-rule-strong hover:text-ink",
               ].join(" ")}
             >
               {range.label}
@@ -89,7 +89,7 @@ function HistoryFilters({
             <button
               type="button"
               onClick={onReset}
-              className="rounded px-3 py-1.5 text-sm text-brass hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-brass"
+              className="rounded-md px-3 py-1.5 text-sm text-brass transition-colors hover:bg-brass-wash"
             >
               Clear filters
             </button>
@@ -109,7 +109,7 @@ function HistoryFilters({
                 type="date"
                 value={filters.startDate}
                 onChange={(event) => onFiltersChange({ startDate: event.target.value })}
-                className="mt-1 rounded border border-rule px-3 py-2 text-sm"
+                className="field-control mt-1.5 w-auto"
               />
             </div>
 
@@ -122,7 +122,7 @@ function HistoryFilters({
                 type="date"
                 value={filters.endDate}
                 onChange={(event) => onFiltersChange({ endDate: event.target.value })}
-                className="mt-1 rounded border border-rule px-3 py-2 text-sm"
+                className="field-control mt-1.5 w-auto"
               />
             </div>
           </div>

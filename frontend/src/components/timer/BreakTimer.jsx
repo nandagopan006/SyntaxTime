@@ -6,6 +6,7 @@ import {
   resumeTimer,
 } from "../../features/timer/timerSlice";
 import { formatTime } from "../../utils/formatTime";
+import Button from "../ui/Button";
 
 /*
   The short break offered after a focus session has been saved.
@@ -14,6 +15,9 @@ import { formatTime } from "../../utils/formatTime";
   That is the only difference, and it is what keeps break minutes out of every
   study total: the reducer refuses to add them to elapsedFocusSeconds, and no
   StudySession is ever created from a break.
+
+  Visually it is lighter than the focus timer - brass-soft rather than brass,
+  no ring - so the two are never mistaken for each other at a glance.
 
   Home and the compact popup both render this component, so ending a break
   means the same thing wherever the user happens to be looking.
@@ -27,83 +31,87 @@ function BreakTimer({ compact = false }) {
     dispatch(clearTimer());
   }
 
-  const primaryButton = `rounded bg-ink text-sm text-parchment focus-visible:outline-2 focus-visible:outline-brass ${
-    compact ? "px-3 py-2" : "px-5 py-2.5"
-  }`;
-  const secondaryButton = `rounded border border-rule text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass ${
-    compact ? "px-3 py-2" : "px-5 py-2.5"
-  }`;
+  const buttonSize = compact ? "sm" : "md";
 
   if (timer.isCompleted) {
     return (
-      <div className={compact ? "text-center" : "text-center py-4"}>
-        <p className="text-xs uppercase tracking-[0.15em] text-brass">
-          Break complete
-        </p>
+      <div className="text-center">
+        <p className="section-eyebrow">Break complete</p>
 
         <p
-          className={`mt-3 font-display text-ink ${compact ? "text-xl" : "text-3xl"}`}
+          className={`mt-3 text-ink font-display ${compact ? "text-xl" : "text-3xl"}`}
         >
           Ready for another session?
         </p>
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size={buttonSize}
           onClick={handleEndBreak}
-          className={`mt-6 ${primaryButton} ${compact ? "w-full" : ""}`}
+          fullWidth={compact}
+          className="mt-6"
         >
           Start focus
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="text-center">
-      <p className="text-xs uppercase tracking-[0.15em] text-brass">
+      <p className="section-eyebrow">
         {timer.isPaused ? "Break paused" : "Break"}
       </p>
 
       <p
-        className={`mt-3 font-display text-ink tabular-nums ${
-          compact ? "text-5xl" : "text-7xl"
-        }`}
         role="timer"
         aria-live="off"
+        className={`mt-3 leading-none text-ink tabular-nums font-display ${
+          compact ? "text-5xl" : "text-6xl"
+        }`}
       >
         {formatTime(timer.remainingSeconds)}
       </p>
 
-      <p className={`mt-3 text-ink-muted ${compact ? "text-xs" : "text-sm"}`}>
+      <p className={`mt-4 text-ink-muted ${compact ? "text-xs" : "text-sm"}`}>
         Step away for a moment. Break time is not counted as study time.
       </p>
 
       <div
         className={
-          compact ? "mt-4 grid grid-cols-2 gap-2" : "mt-8 flex justify-center gap-3"
+          compact
+            ? "mt-4 grid grid-cols-2 gap-2"
+            : "mt-8 flex flex-wrap justify-center gap-3"
         }
       >
         {timer.isRunning ? (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size={buttonSize}
             onClick={() => dispatch(pauseTimer(Date.now()))}
-            className={primaryButton}
+            fullWidth={compact}
           >
             Pause
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size={buttonSize}
             onClick={() => dispatch(resumeTimer(Date.now()))}
-            className={primaryButton}
+            fullWidth={compact}
           >
             Resume
-          </button>
+          </Button>
         )}
 
-        <button type="button" onClick={handleEndBreak} className={secondaryButton}>
+        <Button
+          variant="secondary"
+          size={buttonSize}
+          onClick={handleEndBreak}
+          fullWidth={compact}
+        >
           End break
-        </button>
+        </Button>
       </div>
     </div>
   );

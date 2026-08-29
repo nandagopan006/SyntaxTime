@@ -26,11 +26,10 @@ function LeaderboardPeriodToggle({ selectedPeriod, onSelect, disabled }) {
           // which period is showing.
           aria-pressed={selectedPeriod === period.value}
           className={[
-            "rounded border px-4 py-2 text-sm disabled:opacity-50",
-            "focus-visible:outline-2 focus-visible:outline-brass",
+            "rounded-md border px-4 py-2 text-sm transition-colors disabled:opacity-50",
             selectedPeriod === period.value
-              ? "border-brass bg-surface-sunken text-ink font-medium"
-              : "border-rule text-ink-muted hover:bg-surface-sunken/60 hover:text-ink",
+              ? "border-brass bg-brass-wash font-medium text-ink"
+              : "border-rule bg-surface-raised text-ink-muted hover:border-rule-strong hover:text-ink",
           ].join(" ")}
         >
           {period.label}

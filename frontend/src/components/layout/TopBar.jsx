@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { toggleFocusPopup } from "../../features/ui/uiSlice";
 import { useAuth } from "../../context/AuthContext";
+import Button from "../ui/Button";
 import { navigationItems } from "./navigationItems";
 
 /** Returns the sidebar label for the page currently open. */
@@ -12,6 +13,12 @@ function getPageTitle(pathname) {
   return currentItem ? currentItem.label : "SyntaxTime";
 }
 
+/*
+  The application toolbar.
+
+  An application bar, not a website header: it says where you are, offers the
+  timer if one is running, and stays out of the way otherwise.
+*/
 function TopBar() {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -33,34 +40,33 @@ function TopBar() {
   }
 
   return (
-    <header className="h-16 shrink-0 border-b border-rule bg-surface flex items-center justify-between px-6">
-      <h1 className="font-display text-xl text-ink">
-        {getPageTitle(location.pathname)}
-      </h1>
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-rule bg-surface px-6">
+      <h1 className="text-xl text-ink">{getPageTitle(location.pathname)}</h1>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {hasSession && (
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant={isFocusPopupOpen ? "primary" : "secondary"}
             onClick={() => dispatch(toggleFocusPopup())}
             aria-pressed={isFocusPopupOpen}
-            className="flex items-center gap-2 rounded border border-rule px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
           >
-            <Timer size={16} aria-hidden="true" />
+            <Timer size={15} aria-hidden="true" />
             {isBreak ? "Break timer" : "Focus timer"}
-          </button>
+          </Button>
         )}
+
+        <span
+          aria-hidden="true"
+          className="hidden h-5 w-px bg-rule sm:block"
+        />
 
         <span className="text-sm text-ink-muted">{user.username}</span>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex items-center gap-2 rounded border border-rule px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
-        >
-          <LogOut size={16} aria-hidden="true" />
+        <Button size="sm" variant="secondary" onClick={handleLogout}>
+          <LogOut size={15} aria-hidden="true" />
           Log out
-        </button>
+        </Button>
       </div>
     </header>
   );

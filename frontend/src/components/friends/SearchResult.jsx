@@ -1,3 +1,5 @@
+import Button from "../ui/Button";
+
 /*
   One person the search turned up, with whatever action makes sense for them.
 
@@ -7,26 +9,25 @@
 */
 function SearchResult({ user, isSending, onSendRequest }) {
   return (
-    <li className="flex items-center justify-between gap-4 rounded border border-rule bg-surface px-4 py-3">
+    <li className="flex items-center justify-between gap-4 rounded-md border border-rule bg-surface-raised px-4 py-3 transition-colors hover:border-rule-strong">
       <div className="min-w-0">
-        <p className="truncate font-display text-lg text-ink">{user.username}</p>
+        <p className="truncate text-base font-medium text-ink">{user.username}</p>
         <p className="text-sm text-ink-faint">
-          {user.relationship === "friends"
-            ? "Study friend"
-            : "SyntaxTime user"}
+          {user.relationship === "friends" ? "Study friend" : "SyntaxTime user"}
         </p>
       </div>
 
       <div className="shrink-0">
         {user.relationship === "none" && (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => onSendRequest(user)}
-            disabled={isSending}
-            className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
+            isBusy={isSending}
+            busyLabel="Sending..."
           >
-            {isSending ? "Sending..." : "Add friend"}
-          </button>
+            Add friend
+          </Button>
         )}
 
         {/* The remaining states are statements, not buttons: there is nothing

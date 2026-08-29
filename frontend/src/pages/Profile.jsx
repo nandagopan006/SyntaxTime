@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import ProfileHeader from "../components/profile/ProfileHeader";
 import ProfileStats from "../components/profile/ProfileStats";
 import SubjectTotals from "../components/profile/SubjectTotals";
+import Button from "../components/ui/Button";
+import LoadingState from "../components/ui/LoadingState";
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../services/api";
 import { getProfileStatistics } from "../services/profileService";
@@ -67,11 +69,11 @@ function Profile() {
     return (
       <div className="space-y-8">
         <header className="border-b border-rule pb-6">
-          <h1 className="font-display text-3xl text-ink">{user.username}</h1>
-          <p className="mt-1 text-sm text-ink-muted">Your study journey so far</p>
+          <h1 className="text-3xl text-ink">{user.username}</h1>
+          <p className="mt-1.5 text-sm text-ink-muted">Your study journey so far</p>
         </header>
 
-        <p className="text-sm text-ink-faint">Loading your study overview...</p>
+        <LoadingState label="Loading your study overview" lines={4} />
       </div>
     );
   }
@@ -80,18 +82,18 @@ function Profile() {
     return (
       <div className="space-y-8">
         <header className="border-b border-rule pb-6">
-          <h1 className="font-display text-3xl text-ink">{user.username}</h1>
+          <h1 className="text-3xl text-ink">{user.username}</h1>
         </header>
 
         <div role="alert">
           <p className="text-sm text-burgundy">{errorMessage}</p>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => setReloadCount((count) => count + 1)}
-            className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+            className="mt-3"
           >
             Try again
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -125,7 +127,7 @@ function Profile() {
 
           <Link
             to="/"
-            className="mt-4 inline-block rounded bg-ink px-5 py-2.5 text-sm text-parchment focus-visible:outline-2 focus-visible:outline-brass"
+            className="mt-4 inline-flex items-center rounded-md border border-ink bg-ink px-4 py-2 text-sm font-medium text-parchment transition-colors hover:bg-ink/90"
           >
             Start studying
           </Link>

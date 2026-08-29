@@ -10,7 +10,7 @@ import DailyTargetProgress from "./DailyTargetProgress";
 /** One label-and-value row in the panel's list of figures. */
 function StatRow({ label, value }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex items-baseline justify-between gap-4">
       <dt className="text-ink-muted">{label}</dt>
       <dd className="text-ink tabular-nums">{value}</dd>
     </div>
@@ -36,34 +36,30 @@ function TodayFocusStat() {
   } = useSelector((state) => state.statistics);
 
   return (
-    <section
-      aria-labelledby="today-heading"
-      className="bg-surface border border-rule rounded-lg p-6"
-    >
-      <h2
-        id="today-heading"
-        className="text-xs uppercase tracking-[0.15em] text-brass"
-      >
+    <section aria-labelledby="today-heading" className="surface-card p-6">
+      <h2 id="today-heading" className="section-eyebrow font-sans">
         Today
       </h2>
 
-      <p className="mt-3 font-display text-4xl text-ink tabular-nums">
+      {/* The one number this panel is about, so it gets the display face and
+          the size to match. */}
+      <p className="mt-3 text-4xl leading-none text-ink tabular-nums font-display">
         {formatStudyTime(liveTodaySeconds)}
       </p>
 
       {hasFailed && (
-        <p className="mt-2 text-sm text-burgundy" role="alert">
+        <p className="mt-3 text-sm text-burgundy" role="alert">
           Could not load today&apos;s saved total. The time shown may be incomplete.
         </p>
       )}
 
       {isLoading && !hasFailed && (
-        <p className="mt-2 text-sm text-ink-faint">Loading today&apos;s total...</p>
+        <p className="mt-3 text-sm text-ink-faint">Loading today&apos;s total...</p>
       )}
 
       <DailyTargetProgress focusedSeconds={liveTodaySeconds} />
 
-      <dl className="mt-5 space-y-1 text-sm border-t border-rule pt-4">
+      <dl className="mt-5 space-y-1.5 border-t border-rule pt-4 text-sm">
         <StatRow label="Sessions today" value={todaySessionsCount} />
 
         {/* Shown only while studying, so the user can see why the total above

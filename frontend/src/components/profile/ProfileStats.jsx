@@ -8,9 +8,11 @@ function formatDays(days) {
 /** One figure and what it means. */
 function Stat({ label, value }) {
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-[0.15em] text-brass">{label}</dt>
-      <dd className="mt-1 font-display text-2xl text-ink tabular-nums">{value}</dd>
+    <div className="rounded-md border border-rule bg-surface-raised px-4 py-3">
+      <dt className="section-eyebrow">{label}</dt>
+      <dd className="mt-1.5 text-2xl leading-none text-ink tabular-nums font-display">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -26,7 +28,7 @@ function Stat({ label, value }) {
 */
 function ProfileStats({ statistics }) {
   return (
-    <dl className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+    <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       <Stat label="Sessions" value={statistics.totalSessions} />
 
       <Stat label="Study days" value={statistics.totalStudyDays} />

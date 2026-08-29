@@ -7,6 +7,8 @@ import {
 } from "../../services/leaderboardService";
 import { formatMonthLabel, formatShortDate } from "../../utils/formatDate";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import Button from "../ui/Button";
+import LoadingState from "../ui/LoadingState";
 import LeaderboardEntry from "./LeaderboardEntry";
 import LeaderboardPeriodToggle from "./LeaderboardPeriodToggle";
 
@@ -85,10 +87,7 @@ function Leaderboard() {
     <section aria-labelledby="leaderboard-heading">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <h2
-            id="leaderboard-heading"
-            className="text-xs uppercase tracking-[0.15em] text-brass"
-          >
+          <h2 id="leaderboard-heading" className="section-eyebrow font-sans">
             Study leaderboard
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
@@ -105,19 +104,19 @@ function Leaderboard() {
 
       <div className="mt-4 border-t border-rule pt-5">
         {status === "loading" && (
-          <p className="text-sm text-ink-faint">Loading leaderboard...</p>
+          <LoadingState label="Loading leaderboard" lines={4} />
         )}
 
         {status === "failed" && (
           <div role="alert">
             <p className="text-sm text-burgundy">{errorMessage}</p>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => setReloadCount((count) => count + 1)}
-              className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+              className="mt-3"
             >
               Try again
-            </button>
+            </Button>
           </div>
         )}
 

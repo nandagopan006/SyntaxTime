@@ -40,14 +40,18 @@ function Home() {
         <TodayFocusStat />
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
-        <WeeklyStudyChart />
-        <SubjectBreakdown />
-      </div>
+      {/* Everything below the timer reports on it, so it is set apart by a
+          rule and given a slower rhythm of its own. */}
+      <div className="space-y-10 border-t border-rule pt-10">
+        <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <WeeklyStudyChart />
+          <SubjectBreakdown />
+        </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
-        <RecentSessions />
-        <LeaderboardPreview />
+        <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <RecentSessions />
+          <LeaderboardPreview />
+        </div>
       </div>
     </div>
   );

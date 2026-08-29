@@ -1,3 +1,5 @@
+import Button from "../ui/Button";
+
 /*
   One friend request waiting for an answer.
 
@@ -7,9 +9,9 @@
 */
 function FriendRequestItem({ request, isOutgoing, busyAction, onAccept, onReject }) {
   return (
-    <li className="flex items-center justify-between gap-4 rounded border border-rule bg-surface px-4 py-3">
+    <li className="flex items-center justify-between gap-4 rounded-md border border-rule bg-surface-raised px-4 py-3 transition-colors hover:border-rule-strong">
       <div className="min-w-0">
-        <p className="truncate font-display text-lg text-ink">
+        <p className="truncate text-base font-medium text-ink">
           {request.user.username}
         </p>
         <p className="text-sm text-ink-faint">
@@ -21,23 +23,27 @@ function FriendRequestItem({ request, isOutgoing, busyAction, onAccept, onReject
         <span className="shrink-0 text-sm text-ink-muted">Pending</span>
       ) : (
         <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => onAccept(request)}
             disabled={Boolean(busyAction)}
-            className="rounded bg-ink px-4 py-2 text-sm text-parchment disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
+            isBusy={busyAction === "accept"}
+            busyLabel="Accepting..."
           >
-            {busyAction === "accept" ? "Accepting..." : "Accept"}
-          </button>
+            Accept
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => onReject(request)}
             disabled={Boolean(busyAction)}
-            className="rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
+            isBusy={busyAction === "reject"}
+            busyLabel="Rejecting..."
           >
-            {busyAction === "reject" ? "Rejecting..." : "Reject"}
-          </button>
+            Reject
+          </Button>
         </div>
       )}
     </li>

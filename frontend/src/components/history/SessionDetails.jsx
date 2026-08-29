@@ -2,6 +2,7 @@ import { Pencil } from "lucide-react";
 
 import { formatFullDate, formatSessionTime } from "../../utils/formatDate";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import Button from "../ui/Button";
 
 /** One label-and-value row in the detail panel. */
 function DetailRow({ label, value }) {
@@ -24,9 +25,7 @@ function SessionDetails({ session, onEdit }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl text-ink">
-        {session.subject || "General Study"}
-      </h2>
+      <h2 className="text-2xl text-ink">{session.subject || "General Study"}</h2>
       <p className="mt-1 text-sm text-ink-muted">
         {session.topic || "No topic added"}
       </p>
@@ -49,9 +48,7 @@ function SessionDetails({ session, onEdit }) {
       </dl>
 
       <div className="mt-6 border-t border-rule pt-4">
-        <h3 className="text-xs uppercase tracking-[0.15em] text-brass">
-          What you learned
-        </h3>
+        <h3 className="section-eyebrow font-sans">What you learned</h3>
 
         {session.notes ? (
           // whitespace-pre-line keeps the paragraphs the user typed.
@@ -65,14 +62,10 @@ function SessionDetails({ session, onEdit }) {
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={onEdit}
-        className="mt-6 flex items-center gap-2 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
-      >
-        <Pencil size={16} aria-hidden="true" />
+      <Button variant="secondary" onClick={onEdit} className="mt-6">
+        <Pencil size={15} aria-hidden="true" />
         Edit details
-      </button>
+      </Button>
     </div>
   );
 }

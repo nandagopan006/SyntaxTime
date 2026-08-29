@@ -1,4 +1,5 @@
 import { formatStudyMinutes } from "../../utils/formatTime";
+import Section from "../ui/Section";
 
 // Enough to see where the time goes without listing every subject ever typed.
 const VISIBLE_SUBJECTS = 5;
@@ -47,19 +48,12 @@ function summariseSubjects(subjects) {
 function SubjectTotals({ subjects, mostStudiedSubject }) {
   if (subjects.length === 0) {
     return (
-      <section aria-labelledby="subjects-heading">
-        <h2
-          id="subjects-heading"
-          className="text-xs uppercase tracking-[0.15em] text-brass"
-        >
-          Subjects
-        </h2>
-
-        <p className="mt-4 border-t border-rule pt-5 text-sm text-ink-muted">
+      <Section title="Subjects">
+        <p className="text-sm text-ink-muted">
           No subject data yet. Record a session with a subject and it will
           appear here.
         </p>
-      </section>
+      </Section>
     );
   }
 
@@ -69,23 +63,17 @@ function SubjectTotals({ subjects, mostStudiedSubject }) {
   const largestMinutes = Math.max(...rows.map((row) => row.focusedMinutes), 1);
 
   return (
-    <section aria-labelledby="subjects-heading">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2
-          id="subjects-heading"
-          className="text-xs uppercase tracking-[0.15em] text-brass"
-        >
-          Subjects
-        </h2>
-
-        {mostStudiedSubject && (
+    <Section
+      title="Subjects"
+      action={
+        mostStudiedSubject && (
           <p className="text-sm text-ink-muted">
             Most studied: <span className="text-ink">{mostStudiedSubject}</span>
           </p>
-        )}
-      </div>
-
-      <ul className="mt-4 space-y-4 border-t border-rule pt-5">
+        )
+      }
+    >
+      <ul className="space-y-4">
         {rows.map((row) => (
           <li key={row.name}>
             <div className="flex items-baseline justify-between gap-4 text-sm">
@@ -97,10 +85,10 @@ function SubjectTotals({ subjects, mostStudiedSubject }) {
 
             <div
               aria-hidden="true"
-              className="mt-1.5 h-1.5 overflow-hidden rounded bg-surface-sunken"
+              className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-sunken"
             >
               <div
-                className="h-full bg-brass-soft"
+                className="h-full rounded-full bg-brass-soft"
                 style={{
                   width: `${(row.focusedMinutes / largestMinutes) * 100}%`,
                 }}
@@ -109,7 +97,7 @@ function SubjectTotals({ subjects, mostStudiedSubject }) {
           </li>
         ))}
       </ul>
-    </section>
+    </Section>
   );
 }
 

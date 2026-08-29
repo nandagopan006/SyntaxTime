@@ -1,3 +1,8 @@
+import { Users } from "lucide-react";
+
+import Button from "../ui/Button";
+import EmptyState from "../ui/EmptyState";
+import Section from "../ui/Section";
 import FriendItem from "./FriendItem";
 
 /* The people the signed-in user studies alongside. */
@@ -10,15 +15,8 @@ function FriendsList({
   onRetry,
 }) {
   return (
-    <section aria-labelledby="friends-heading">
-      <h2
-        id="friends-heading"
-        className="text-xs uppercase tracking-[0.15em] text-brass"
-      >
-        Your friends
-      </h2>
-
-      <div className="mt-3">
+    <Section title="Your friends">
+      <div>
         {status === "loading" && (
           <p className="text-sm text-ink-faint">Loading friends...</p>
         )}
@@ -26,25 +24,18 @@ function FriendsList({
         {status === "failed" && (
           <div role="alert">
             <p className="text-sm text-burgundy">{errorMessage}</p>
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
-            >
+            <Button variant="secondary" onClick={onRetry} className="mt-3">
               Try again
-            </button>
+            </Button>
           </div>
         )}
 
         {status === "ready" && friends.length === 0 && (
-          <div>
-            <p className="text-sm text-ink-muted">
-              You do not have any friends yet.
-            </p>
-            <p className="mt-1 text-sm text-ink-faint">
-              Search for someone to study with.
-            </p>
-          </div>
+          <EmptyState
+            icon={Users}
+            title="You do not have any friends yet."
+            description="Search for someone to study with."
+          />
         )}
 
         {status === "ready" && friends.length > 0 && (
@@ -60,7 +51,7 @@ function FriendsList({
           </ul>
         )}
       </div>
-    </section>
+    </Section>
   );
 }
 

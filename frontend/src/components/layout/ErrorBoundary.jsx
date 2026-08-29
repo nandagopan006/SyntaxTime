@@ -35,9 +35,10 @@ class ErrorBoundary extends Component {
     }
 
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="max-w-md text-center">
-          <h1 className="font-display text-3xl text-ink">Something went wrong</h1>
+      <div className="flex min-h-screen items-center justify-center bg-parchment p-6">
+        <div className="surface-card max-w-md p-8 text-center shadow-panel">
+          <p className="section-eyebrow">SyntaxTime</p>
+          <h1 className="mt-2 text-3xl text-ink">Something went wrong</h1>
 
           <p className="mt-3 text-sm text-ink-muted">
             SyntaxTime could not draw this screen. Your saved study sessions are
@@ -45,7 +46,7 @@ class ErrorBoundary extends Component {
           </p>
 
           {this.state.message && (
-            <p className="mt-4 rounded border border-rule bg-surface px-4 py-3 text-left text-sm text-ink-faint">
+            <p className="mt-4 rounded-md border border-rule bg-surface-sunken px-4 py-3 text-left text-sm text-ink-faint">
               {this.state.message}
             </p>
           )}
@@ -53,7 +54,7 @@ class ErrorBoundary extends Component {
           <button
             type="button"
             onClick={this.handleReload}
-            className="mt-6 rounded bg-ink px-5 py-2.5 text-sm text-parchment focus-visible:outline-2 focus-visible:outline-brass"
+            className="mt-6 inline-flex items-center rounded-md border border-ink bg-ink px-4 py-2 text-sm font-medium text-parchment transition-colors hover:bg-ink/90"
           >
             Reload SyntaxTime
           </button>

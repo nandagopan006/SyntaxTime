@@ -11,6 +11,7 @@ import {
   resumeTimer,
 } from "../../features/timer/timerSlice";
 import { closeFocusPopup, enterFocusMode } from "../../features/ui/uiSlice";
+import Button from "../ui/Button";
 import { formatStudyTime, formatTime } from "../../utils/formatTime";
 import BreakTimer from "./BreakTimer";
 import TimerControls from "./TimerControls";
@@ -113,15 +114,15 @@ function FocusTimerPopup() {
     <section
       aria-label="Focus timer"
       style={{ left: position.x, top: position.y, width: POPUP_WIDTH }}
-      className="fixed z-50 rounded-lg border border-rule bg-surface shadow-lg"
+      className="fixed z-50 animate-surface-in overflow-hidden rounded-lg border border-rule-strong bg-surface shadow-popup"
     >
       <header
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="flex items-center justify-between border-b border-rule px-4 py-2.5 cursor-grab active:cursor-grabbing select-none"
+        className="flex cursor-grab select-none items-center justify-between border-b border-rule bg-surface-sunken/60 px-4 py-2.5 active:cursor-grabbing"
       >
-        <span className="font-display text-sm text-ink">
+        <span className="text-sm text-ink font-display">
           {isBreak ? "Break" : "Focus"} &middot; SyntaxTime
         </span>
 
@@ -129,7 +130,7 @@ function FocusTimerPopup() {
           type="button"
           onClick={handleClosePopup}
           aria-label="Close focus timer"
-          className="rounded p-1 text-ink-faint hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+          className="rounded-sm p-1 text-ink-faint transition-colors hover:bg-surface-sunken hover:text-ink"
         >
           <X size={16} aria-hidden="true" />
         </button>
@@ -138,13 +139,9 @@ function FocusTimerPopup() {
       {!hasSession ? (
         <div className="px-5 py-6 text-center">
           <p className="text-sm text-ink-muted">No active focus session.</p>
-          <button
-            type="button"
-            onClick={handleRecordSession}
-            className="mt-4 rounded bg-ink px-4 py-2 text-sm text-parchment"
-          >
+          <Button variant="primary" onClick={handleRecordSession} className="mt-4">
             Start focus
-          </button>
+          </Button>
         </div>
       ) : isBreak ? (
         /* A break is the same shared timer, so the popup shows the same
@@ -160,36 +157,35 @@ function FocusTimerPopup() {
         </div>
       ) : (
         <div className="px-5 pb-5 pt-4">
-          <p className="text-center text-xs uppercase tracking-[0.15em] text-brass">
-            {getStatusLabel(timer)}
-          </p>
+          <p className="section-eyebrow text-center">{getStatusLabel(timer)}</p>
 
-          <p className="mt-2 text-center font-display text-5xl text-ink tabular-nums">
+          <p
+            role="timer"
+            aria-live="off"
+            className="mt-2 text-center text-5xl leading-none text-ink tabular-nums font-display"
+          >
             {formatTime(timer.remainingSeconds)}
           </p>
 
-          <p className="mt-3 text-center text-sm text-ink">
+          <p className="mt-4 truncate text-center text-sm text-ink">
             {timer.subject || "General Study"}
           </p>
-          <p className="text-center text-sm text-ink-faint">
+          <p className="truncate text-center text-sm text-ink-faint">
             {timer.topic || "No topic added"}
           </p>
 
           <p className="mt-4 border-t border-rule pt-3 text-center text-sm text-ink-muted">
-            Today: <span className="text-ink tabular-nums">
+            Today:{" "}
+            <span className="text-ink tabular-nums">
               {formatStudyTime(liveTodaySeconds)}
             </span>
           </p>
 
           <div className="mt-4">
             {timer.isCompleted ? (
-              <button
-                type="button"
-                onClick={handleRecordSession}
-                className="w-full rounded bg-ink px-4 py-2.5 text-sm text-parchment"
-              >
+              <Button variant="primary" onClick={handleRecordSession} fullWidth>
                 Record session
-              </button>
+              </Button>
             ) : (
               <TimerControls
                 compact
@@ -205,14 +201,16 @@ function FocusTimerPopup() {
           </div>
 
           {!timer.isCompleted && (
-            <button
-              type="button"
+            <Button
+              variant="quiet"
+              size="sm"
               onClick={() => dispatch(enterFocusMode())}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded px-3 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+              fullWidth
+              className="mt-2"
             >
-              <Maximize2 size={16} aria-hidden="true" />
+              <Maximize2 size={15} aria-hidden="true" />
               Focus mode
-            </button>
+            </Button>
           )}
         </div>
       )}

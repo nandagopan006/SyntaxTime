@@ -24,7 +24,9 @@ function DurationSelector({ selectedMinutes, onSelect, disabled }) {
 
   return (
     <fieldset disabled={disabled}>
-      <legend className="text-sm font-medium text-ink-muted mb-2">Focus time</legend>
+      <legend className="mb-2 text-sm font-medium text-ink-muted">
+        Focus time
+      </legend>
 
       <div className="flex flex-wrap items-center gap-2">
         {PRESET_MINUTES.map((minutes) => (
@@ -34,11 +36,10 @@ function DurationSelector({ selectedMinutes, onSelect, disabled }) {
             onClick={() => onSelect(minutes)}
             aria-pressed={selectedMinutes === minutes}
             className={[
-              "rounded border px-4 py-2 text-sm",
+              "rounded-md border px-4 py-2 text-sm transition-colors disabled:opacity-50",
               selectedMinutes === minutes
-                ? "border-brass bg-surface-sunken text-ink font-medium"
-                : "border-rule text-ink-muted hover:text-ink hover:bg-surface-sunken/60",
-              "disabled:opacity-50",
+                ? "border-brass bg-brass-wash font-medium text-ink"
+                : "border-rule bg-surface-raised text-ink-muted hover:border-rule-strong hover:text-ink",
             ].join(" ")}
           >
             {minutes} min
@@ -55,9 +56,8 @@ function DurationSelector({ selectedMinutes, onSelect, disabled }) {
             onChange={handleCustomChange}
             placeholder="Custom"
             className={[
-              "w-24 rounded border px-3 py-2 text-sm",
-              isCustomSelected ? "border-brass bg-surface-sunken" : "border-rule",
-              "disabled:opacity-50",
+              "field-control w-24",
+              isCustomSelected ? "border-brass bg-brass-wash" : "",
             ].join(" ")}
           />
           min

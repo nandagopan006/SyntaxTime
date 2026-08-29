@@ -4,6 +4,7 @@ import FriendRequests from "../components/friends/FriendRequests";
 import FriendsList from "../components/friends/FriendsList";
 import UserSearch from "../components/friends/UserSearch";
 import Leaderboard from "../components/leaderboard/Leaderboard";
+import PageHeader from "../components/ui/PageHeader";
 import { getErrorMessage } from "../services/api";
 import {
   acceptFriendRequest,
@@ -225,17 +226,14 @@ function Friends() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="font-display text-3xl text-ink">Friends</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Connect with people you study alongside. Only your name is shared -
-          your notes and sessions stay private.
-        </p>
-      </header>
+      <PageHeader
+        title="Friends"
+        description="Connect with people you study alongside. Only your name is shared - your notes and sessions stay private."
+      />
 
       {actionError && (
         <p
-          className="rounded border border-rule bg-surface px-4 py-3 text-sm text-burgundy"
+          className="rounded-md border border-burgundy/25 bg-burgundy/5 px-4 py-3 text-sm text-burgundy"
           role="alert"
         >
           {actionError}
@@ -244,7 +242,7 @@ function Friends() {
 
       {actionMessage && (
         <p
-          className="rounded border border-rule bg-surface px-4 py-3 text-sm text-forest"
+          className="rounded-md border border-forest/25 bg-forest/5 px-4 py-3 text-sm text-forest"
           role="status"
         >
           {actionMessage}
@@ -253,7 +251,7 @@ function Friends() {
 
       {/* First on the page, because comparing progress is what brings someone
           back to Friends. Searching and answering requests are occasional. */}
-      <div className="border-t border-rule pt-6">
+      <div>
         <Leaderboard />
       </div>
 

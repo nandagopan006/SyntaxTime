@@ -11,6 +11,7 @@ import {
   resumeTimer,
 } from "../../features/timer/timerSlice";
 import { exitFocusMode } from "../../features/ui/uiSlice";
+import Button from "../ui/Button";
 import { formatStudyTime, formatTime } from "../../utils/formatTime";
 import BreakTimer from "./BreakTimer";
 import TimerControls from "./TimerControls";
@@ -77,20 +78,16 @@ function FocusMode() {
       <header className="flex items-center justify-between px-6 py-4">
         <span className="font-display text-lg text-ink-faint">SyntaxTime</span>
 
-        <button
-          type="button"
-          onClick={handleExit}
-          className="flex items-center gap-2 rounded border border-rule px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
-        >
-          <Minimize2 size={16} aria-hidden="true" />
+        <Button size="sm" variant="secondary" onClick={handleExit}>
+          <Minimize2 size={15} aria-hidden="true" />
           Exit focus mode
-        </button>
+        </Button>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
         {!hasSession ? (
           <div>
-            <p className="font-display text-3xl text-ink">No session running</p>
+            <p className="text-3xl text-ink font-display">No session running</p>
             <p className="mt-3 text-sm text-ink-muted">
               Leave focus mode and start a session from Home.
             </p>
@@ -99,34 +96,30 @@ function FocusMode() {
           <BreakTimer />
         ) : (
           <div className="w-full max-w-2xl">
-            <p className="font-display text-3xl text-ink sm:text-4xl">
+            <p className="text-2xl text-ink sm:text-3xl font-display">
               {timer.subject || "General Study"}
             </p>
-            <p className="mt-2 text-base text-ink-muted">
+            <p className="mt-1.5 text-base text-ink-muted">
               {timer.topic || "No topic added"}
             </p>
 
+            {/* Far larger than anywhere else in the application. In focus mode
+                the time is the only thing worth looking at. */}
             <p
-              className="mt-10 font-display text-7xl text-ink tabular-nums sm:text-8xl"
+              className="mt-12 text-[6rem] leading-none text-ink tabular-nums sm:text-[8rem] font-display"
               role="timer"
               aria-live="off"
             >
               {formatTime(timer.remainingSeconds)}
             </p>
 
-            <p className="mt-4 text-xs uppercase tracking-[0.15em] text-brass">
-              {getStatusLabel(timer)}
-            </p>
+            <p className="mt-5 section-eyebrow">{getStatusLabel(timer)}</p>
 
-            <div className="mt-12 flex justify-center">
+            <div className="mt-12 flex flex-wrap justify-center gap-3">
               {timer.isCompleted ? (
-                <button
-                  type="button"
-                  onClick={handleRecordSession}
-                  className="rounded bg-ink px-5 py-2.5 text-sm text-parchment focus-visible:outline-2 focus-visible:outline-brass"
-                >
+                <Button variant="primary" onClick={handleRecordSession}>
                   Record session
-                </button>
+                </Button>
               ) : (
                 <TimerControls
                   isRunning={timer.isRunning}
@@ -143,7 +136,7 @@ function FocusMode() {
         )}
       </div>
 
-      <footer className="border-t border-rule px-6 py-4 text-center text-sm text-ink-muted">
+      <footer className="border-t border-rule bg-surface/50 px-6 py-4 text-center text-sm text-ink-muted">
         Today:{" "}
         <span className="text-ink tabular-nums">
           {formatStudyTime(liveTodaySeconds)}

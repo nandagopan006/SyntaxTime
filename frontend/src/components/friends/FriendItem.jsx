@@ -1,3 +1,5 @@
+import Button from "../ui/Button";
+
 /*
   One accepted study friend.
 
@@ -7,22 +9,24 @@
 */
 function FriendItem({ friend, isRemoving, onRemove }) {
   return (
-    <li className="flex items-center justify-between gap-4 rounded border border-rule bg-surface px-4 py-3">
+    <li className="flex items-center justify-between gap-4 rounded-md border border-rule bg-surface-raised px-4 py-3 transition-colors hover:border-rule-strong">
       <div className="min-w-0">
-        <p className="truncate font-display text-lg text-ink">
+        <p className="truncate text-base font-medium text-ink">
           {friend.user.username}
         </p>
         <p className="text-sm text-ink-faint">Study friend</p>
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant="danger"
+        size="sm"
         onClick={() => onRemove(friend)}
-        disabled={isRemoving}
-        className="shrink-0 rounded px-3 py-1.5 text-sm text-ink-faint hover:bg-surface-sunken hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
+        isBusy={isRemoving}
+        busyLabel="Removing..."
+        className="shrink-0"
       >
-        {isRemoving ? "Removing..." : "Remove"}
-      </button>
+        Remove
+      </Button>
     </li>
   );
 }

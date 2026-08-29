@@ -15,11 +15,10 @@ function StudySessionItem({ session, isSelected, onSelect }) {
         onClick={() => onSelect(session)}
         aria-current={isSelected ? "true" : undefined}
         className={[
-          "w-full rounded border px-4 py-3 text-left transition-colors",
-          "focus-visible:outline-2 focus-visible:outline-brass",
+          "w-full rounded-md border px-4 py-3 text-left transition-colors",
           isSelected
-            ? "border-brass bg-surface-sunken"
-            : "border-rule bg-surface hover:bg-surface-sunken/60",
+            ? "border-brass bg-brass-wash shadow-card"
+            : "border-rule bg-surface-raised hover:border-rule-strong hover:bg-surface-sunken/50",
         ].join(" ")}
       >
         <div className="flex items-baseline justify-between gap-4">
@@ -27,7 +26,7 @@ function StudySessionItem({ session, isSelected, onSelect }) {
             {/* Subject and topic were optional when the session started, so
                 each falls back to wording that reads as an answer rather than
                 a missing value. */}
-            <p className="truncate font-display text-lg text-ink">
+            <p className="truncate text-base font-medium text-ink">
               {session.subject || "General Study"}
             </p>
             <p className="truncate text-sm text-ink-muted">

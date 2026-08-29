@@ -8,15 +8,15 @@ import { formatStudyMinutes } from "../../utils/formatTime";
  */
 function getRankStyle(rank) {
   if (rank === 1) {
-    return "border-brass bg-brass text-parchment";
+    return "border-brass bg-brass text-parchment shadow-card";
   }
   if (rank === 2) {
-    return "border-brass-soft bg-surface-sunken text-ink";
+    return "border-brass-soft bg-brass-wash text-ink";
   }
   if (rank === 3) {
-    return "border-rule bg-surface-sunken text-ink-muted";
+    return "border-rule-strong bg-surface-sunken text-ink-muted";
   }
-  return "border-transparent text-ink-faint";
+  return "border-transparent bg-transparent text-ink-faint";
 }
 
 /*
@@ -29,34 +29,34 @@ function LeaderboardEntry({ entry }) {
   return (
     <li
       className={[
-        "flex items-center gap-4 rounded border px-4 py-3",
+        "flex items-center gap-4 rounded-md border px-4 py-3 transition-colors",
         entry.is_current_user
-          ? "border-brass bg-surface-sunken"
-          : "border-rule bg-surface",
+          ? "border-brass bg-brass-wash"
+          : "border-rule bg-surface-raised hover:border-rule-strong",
       ].join(" ")}
     >
       <span
         aria-hidden="true"
         className={[
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm tabular-nums",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-medium tabular-nums",
           getRankStyle(entry.rank),
         ].join(" ")}
       >
-        {entry.rank}
+        {String(entry.rank).padStart(2, "0")}
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-lg text-ink">
+        <p className="truncate text-base font-medium text-ink">
           <span className="sr-only">Rank {entry.rank}: </span>
           {entry.username}
         </p>
 
         {entry.is_current_user && (
-          <p className="text-xs uppercase tracking-[0.15em] text-brass">You</p>
+          <p className="section-eyebrow">You</p>
         )}
       </div>
 
-      <span className="shrink-0 text-sm text-ink tabular-nums">
+      <span className="shrink-0 text-sm text-ink tabular-nums font-display">
         {formatStudyMinutes(entry.focused_minutes)}
       </span>
     </li>

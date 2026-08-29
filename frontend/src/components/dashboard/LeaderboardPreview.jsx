@@ -57,7 +57,7 @@ function LeaderboardPreview() {
   const friendsLink = (
     <Link
       to="/friends"
-      className="rounded px-2 py-1 text-sm text-brass hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-brass"
+      className="rounded-md px-2 py-1 text-sm text-brass transition-colors hover:bg-brass-wash"
     >
       Full board
     </Link>
@@ -92,7 +92,7 @@ function LeaderboardPreview() {
 
         <Link
           to="/friends"
-          className="mt-4 inline-block rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+          className="mt-4 inline-flex items-center rounded-md border border-rule bg-surface-raised px-4 py-2 text-sm font-medium text-ink-muted transition-colors hover:border-rule-strong hover:bg-surface-sunken hover:text-ink"
         >
           Go to Friends
         </Link>

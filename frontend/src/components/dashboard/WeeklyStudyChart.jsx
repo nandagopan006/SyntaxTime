@@ -16,6 +16,8 @@ import {
 } from "../../features/statistics/statisticsSlice";
 import { formatWeekdayLabel, isToday } from "../../utils/formatDate";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import LoadingState from "../ui/LoadingState";
+import Button from "../ui/Button";
 import DashboardSection from "./DashboardSection";
 
 /** Draws the label under each bar, and the reading beside the axis. */
@@ -32,7 +34,7 @@ function ChartTooltip({ active, payload }) {
   const day = payload[0].payload;
 
   return (
-    <div className="rounded border border-rule bg-surface px-3 py-2 text-sm shadow-sm">
+    <div className="rounded-md border border-rule bg-surface px-3 py-2 text-sm shadow-panel">
       <p className="text-ink">{day.label}</p>
       <p className="text-ink-muted tabular-nums">
         {formatStudyMinutes(day.focusedMinutes)}
@@ -71,13 +73,13 @@ function WeeklyStudyChart() {
         <p className="text-sm text-burgundy" role="alert">
           Unable to load this week&apos;s study time.
         </p>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => dispatch(fetchWeeklyStatistics())}
-          className="mt-3 rounded border border-rule px-4 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-brass"
+          className="mt-3"
         >
           Try again
-        </button>
+        </Button>
       </DashboardSection>
     );
   }
@@ -85,8 +87,7 @@ function WeeklyStudyChart() {
   if (isWeeklyLoading && days.length === 0) {
     return (
       <DashboardSection title="This week">
-        <div className="h-48 rounded bg-surface-sunken/50" />
-        <p className="mt-3 text-sm text-ink-faint">Loading this week...</p>
+        <LoadingState label="Loading this week" lines={4} />
       </DashboardSection>
     );
   }
@@ -117,7 +118,7 @@ function WeeklyStudyChart() {
             <CartesianGrid
               vertical={false}
               stroke="var(--color-rule)"
-              strokeDasharray="2 4"
+              strokeDasharray="2 5"
             />
             <XAxis
               dataKey="label"
@@ -139,7 +140,7 @@ function WeeklyStudyChart() {
             {/* Animation is switched off deliberately: the bar for today grows
                 as the session runs, and a chart that replays itself every
                 minute would pull attention away from studying. */}
-            <Bar dataKey="focusedMinutes" radius={[2, 2, 0, 0]} isAnimationActive={false}>
+            <Bar dataKey="focusedMinutes" radius={[3, 3, 0, 0]} isAnimationActive={false}>
               {days.map((day) => (
                 <Cell
                   key={day.label}

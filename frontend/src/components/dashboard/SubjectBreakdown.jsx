@@ -66,9 +66,12 @@ function SubjectBreakdown() {
                 </span>
               </div>
 
-              <div className="mt-1.5 h-1.5 rounded bg-surface-sunken overflow-hidden">
+              <div
+                aria-hidden="true"
+                className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-sunken"
+              >
                 <div
-                  className="h-full bg-brass-soft"
+                  className="h-full rounded-full bg-brass-soft"
                   style={{ width: `${widthPercent}%` }}
                 />
               </div>

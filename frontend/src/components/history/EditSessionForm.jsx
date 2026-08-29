@@ -4,6 +4,7 @@ import { getErrorMessage } from "../../services/api";
 import { updateStudySession } from "../../services/studyService";
 import { formatStudyMinutes } from "../../utils/formatTime";
 import { SUBJECT_MAX_LENGTH, TOPIC_MAX_LENGTH } from "../../utils/studySession";
+import Button from "../ui/Button";
 
 /*
   Filling in what a session was about, after the fact.
@@ -50,7 +51,7 @@ function EditSessionForm({ session, onCancel, onSaved }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 className="font-display text-2xl text-ink">Edit session</h2>
+      <h2 className="text-2xl text-ink">Edit session</h2>
       <p className="mt-1 text-sm text-ink-muted">
         {formatStudyMinutes(session.focused_minutes)} focused. All three fields
         are optional.
@@ -68,7 +69,7 @@ function EditSessionForm({ session, onCancel, onSaved }) {
             onChange={(event) => setSubject(event.target.value)}
             placeholder="Python"
             maxLength={SUBJECT_MAX_LENGTH}
-            className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
+            className="field-control mt-1.5"
           />
         </div>
 
@@ -83,7 +84,7 @@ function EditSessionForm({ session, onCancel, onSaved }) {
             onChange={(event) => setTopic(event.target.value)}
             placeholder="Django REST authentication"
             maxLength={TOPIC_MAX_LENGTH}
-            className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
+            className="field-control mt-1.5"
           />
         </div>
 
@@ -97,7 +98,7 @@ function EditSessionForm({ session, onCancel, onSaved }) {
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             placeholder="Learned how JWT access and refresh tokens work."
-            className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
+            className="field-control mt-1.5"
           />
         </div>
       </fieldset>
@@ -109,22 +110,13 @@ function EditSessionForm({ session, onCancel, onSaved }) {
       )}
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="rounded bg-ink px-5 py-2.5 text-sm text-parchment disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
-        >
-          {isSaving ? "Saving..." : "Save changes"}
-        </button>
+        <Button type="submit" variant="primary" isBusy={isSaving} busyLabel="Saving...">
+          Save changes
+        </Button>
 
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isSaving}
-          className="rounded border border-rule px-5 py-2.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brass"
-        >
+        <Button variant="secondary" onClick={onCancel} disabled={isSaving}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
