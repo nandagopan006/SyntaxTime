@@ -17,7 +17,9 @@ function TimerDial({ remainingSeconds, durationSeconds, status, isBreak }) {
   const progress = durationSeconds > 0 ? Math.min(elapsed / durationSeconds, 1) : 0;
 
   return (
-    <div className="relative mx-auto flex h-56 w-56 items-center justify-center">
+    // Sized from the smaller viewport dimension, so a 768px-tall laptop screen
+    // still shows the controls beneath it without scrolling.
+    <div className="relative mx-auto flex aspect-square w-[clamp(11rem,26vmin,14rem)] items-center justify-center">
       <svg
         viewBox="0 0 200 200"
         aria-hidden="true"
@@ -51,7 +53,7 @@ function TimerDial({ remainingSeconds, durationSeconds, status, isBreak }) {
         <p
           role="timer"
           aria-live="off"
-          className="font-display text-6xl leading-none text-ink tabular-nums"
+          className="text-[clamp(2.75rem,7vmin,3.75rem)] leading-none text-ink tabular-nums font-display"
         >
           {formatTime(remainingSeconds)}
         </p>

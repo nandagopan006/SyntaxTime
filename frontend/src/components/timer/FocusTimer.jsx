@@ -253,12 +253,25 @@ function FocusTimer() {
         )}
       </div>
 
+      {/* Mentioned once, quietly, where the controls are. A shortcut nobody
+          knows about is not a shortcut. */}
+      {isActive && (
+        <p className="mt-4 text-center text-xs text-ink-faint">
+          Press <kbd className="rounded-sm border border-rule bg-surface-sunken px-1.5 py-0.5 font-sans">Space</kbd> to
+          {" "}
+          {timer.isRunning ? "pause" : "resume"}
+        </p>
+      )}
+
       <div className="mt-8 space-y-5 border-t border-rule pt-6">
-        <DurationSelector
-          selectedMinutes={selectedMinutes}
-          onSelect={(minutes) => dispatch(setDuration(minutes * 60))}
-          disabled={isActive}
-        />
+        {/* The length is fixed once a session starts, so the picker would only
+            be a disabled control taking up room the timer wants. */}
+        {!isActive && (
+          <DurationSelector
+            selectedMinutes={selectedMinutes}
+            onSelect={(minutes) => dispatch(setDuration(minutes * 60))}
+          />
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

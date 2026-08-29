@@ -1,5 +1,5 @@
 import { Minimize2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
@@ -37,10 +37,26 @@ function FocusMode() {
   const timer = useSelector((state) => state.timer);
   const liveTodaySeconds = useSelector(selectLiveTodayFocusSeconds);
 
+  const exitButtonRef = useRef(null);
+
   /** Leaves Focus Mode without changing the active timer. */
   function handleExit() {
     dispatch(exitFocusMode());
   }
+
+  // Focus moves into the overlay when it opens and back to whatever opened it
+  // when it closes, so a keyboard user is never left tabbing through a page
+  // they can no longer see.
+  useEffect(() => {
+    const opener = document.activeElement;
+    exitButtonRef.current?.focus();
+
+    return () => {
+      if (opener instanceof HTMLElement && document.contains(opener)) {
+        opener.focus();
+      }
+    };
+  }, []);
 
   // Escape leaves the view and nothing else. It must never pause, reset or
   // finish a session, because a mistyped key would then cost real study time.
@@ -73,18 +89,18 @@ function FocusMode() {
       role="dialog"
       aria-modal="true"
       aria-label="Focus mode"
-      className="fixed inset-0 z-[60] flex flex-col bg-parchment animate-focus-mode-in"
+      className="fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-parchment animate-focus-mode-in"
     >
       <header className="flex items-center justify-between px-6 py-4">
         <span className="font-display text-lg text-ink-faint">SyntaxTime</span>
 
-        <Button size="sm" variant="secondary" onClick={handleExit}>
+        <Button ref={exitButtonRef} size="sm" variant="secondary" onClick={handleExit}>
           <Minimize2 size={15} aria-hidden="true" />
           Exit focus mode
         </Button>
       </header>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center">
         {!hasSession ? (
           <div>
             <p className="text-3xl text-ink font-display">No session running</p>
@@ -96,17 +112,17 @@ function FocusMode() {
           <BreakTimer />
         ) : (
           <div className="w-full max-w-2xl">
-            <p className="text-2xl text-ink sm:text-3xl font-display">
+            <p className="text-2xl text-ink break-words sm:text-3xl font-display">
               {timer.subject || "General Study"}
             </p>
-            <p className="mt-1.5 text-base text-ink-muted">
+            <p className="mt-1.5 text-base text-ink-muted break-words">
               {timer.topic || "No topic added"}
             </p>
 
             {/* Far larger than anywhere else in the application. In focus mode
                 the time is the only thing worth looking at. */}
             <p
-              className="mt-12 text-[6rem] leading-none text-ink tabular-nums sm:text-[8rem] font-display"
+              className="mt-10 text-[clamp(4rem,16vmin,8rem)] leading-none text-ink tabular-nums font-display"
               role="timer"
               aria-live="off"
             >

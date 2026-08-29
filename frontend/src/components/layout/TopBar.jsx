@@ -41,9 +41,9 @@ function TopBar() {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-rule bg-surface px-6">
-      <h1 className="text-xl text-ink">{getPageTitle(location.pathname)}</h1>
+      <h1 className="truncate text-xl text-ink">{getPageTitle(location.pathname)}</h1>
 
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         {hasSession && (
           <Button
             size="sm"
@@ -61,7 +61,9 @@ function TopBar() {
           className="hidden h-5 w-px bg-rule sm:block"
         />
 
-        <span className="text-sm text-ink-muted">{user.username}</span>
+        <span className="hidden max-w-[12rem] truncate text-sm text-ink-muted sm:inline">
+          {user.username}
+        </span>
 
         <Button size="sm" variant="secondary" onClick={handleLogout}>
           <LogOut size={15} aria-hidden="true" />

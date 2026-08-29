@@ -25,8 +25,10 @@ function SessionDetails({ session, onEdit }) {
 
   return (
     <div>
-      <h2 className="text-2xl text-ink">{session.subject || "General Study"}</h2>
-      <p className="mt-1 text-sm text-ink-muted">
+      <h2 className="text-2xl text-ink break-words">
+        {session.subject || "General Study"}
+      </h2>
+      <p className="mt-1 text-sm text-ink-muted break-words">
         {session.topic || "No topic added"}
       </p>
 
@@ -52,7 +54,7 @@ function SessionDetails({ session, onEdit }) {
 
         {session.notes ? (
           // whitespace-pre-line keeps the paragraphs the user typed.
-          <p className="mt-3 whitespace-pre-line text-sm text-ink">
+          <p className="mt-3 whitespace-pre-line break-words text-sm text-ink">
             {session.notes}
           </p>
         ) : (

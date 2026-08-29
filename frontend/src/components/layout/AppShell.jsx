@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom";
 
 import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
 import { useTimer } from "../../hooks/useTimer";
+import { useTimerShortcuts } from "../../hooks/useTimerShortcuts";
 import FocusMode from "../timer/FocusMode";
 import FocusTimerPopup from "../timer/FocusTimerPopup";
 
@@ -20,6 +21,8 @@ function AppShell() {
   // Driven here, once, so the countdown keeps running while the user moves
   // between pages and no second interval can ever be created.
   useTimer();
+  // Space pauses and resumes wherever the user happens to be looking.
+  useTimerShortcuts();
 
   const dispatch = useDispatch();
   const isFocusPopupOpen = useSelector((state) => state.ui.isFocusPopupOpen);

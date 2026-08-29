@@ -86,7 +86,7 @@ function Leaderboard() {
   return (
     <section aria-labelledby="leaderboard-heading">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 id="leaderboard-heading" className="section-eyebrow font-sans">
             Study leaderboard
           </h2>

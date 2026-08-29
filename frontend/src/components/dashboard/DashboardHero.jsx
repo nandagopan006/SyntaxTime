@@ -45,27 +45,19 @@ function DashboardHero() {
   const timer = useSelector((state) => state.timer);
 
   return (
-    <section className="relative overflow-hidden rounded-lg border border-rule bg-surface-raised">
-      {/* A warm wash from the lamp side of the drawing, so the panel reads as
-          lit rather than flat. Kept faint enough to write over. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-brass-wash"
-      />
-
-      <div className="relative flex items-center justify-between gap-6 px-6 py-5 sm:px-8">
-        <div>
-          <h1 className="text-2xl text-ink sm:text-3xl">
-            {getGreeting()}, {user.username}.
-          </h1>
-          <p className="mt-1.5 text-sm text-ink-muted">
-            Stay focused. Keep building.
-          </p>
-          <p className="mt-1 text-sm text-brass">{getStatusLine(timer)}</p>
-        </div>
-
-        <StudyDeskIllustration className="hidden h-24 w-48 shrink-0 sm:block" />
+    // Deliberately short: on a 768px-tall laptop every row here is a row the
+    // timer below does not get. The greeting and the status share one line.
+    <section className="flex items-center justify-between gap-6 border-b border-rule pb-4">
+      <div className="min-w-0">
+        <h1 className="truncate text-2xl text-ink">
+          {getGreeting()}, {user.username}.
+        </h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          {getStatusLine(timer)}
+        </p>
       </div>
+
+      <StudyDeskIllustration className="hidden h-14 w-28 shrink-0 opacity-90 lg:block" />
     </section>
   );
 }

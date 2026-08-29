@@ -9,8 +9,8 @@ import { formatStudyMinutes } from "../../utils/formatTime";
 function ProfileHeader({ username, totalFocusedMinutes }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-6 border-b border-rule pb-6">
-      <div>
-        <h1 className="text-3xl text-ink">{username}</h1>
+      <div className="min-w-0">
+        <h1 className="text-3xl text-ink break-words">{username}</h1>
         <p className="mt-1.5 text-sm text-ink-muted">Your study journey so far</p>
       </div>
 

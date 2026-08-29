@@ -1,5 +1,5 @@
 import { Maximize2, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
@@ -18,16 +18,33 @@ import TimerControls from "./TimerControls";
 
 const POPUP_WIDTH = 320;
 const EDGE_MARGIN = 16;
+// Roughly the popup's height. Only used to keep the whole card on screen; the
+// exact figure does not matter because the clamp below is deliberately lenient.
+const POPUP_HEIGHT = 320;
 
-/** Keeps the popup inside the browser window while it is dragged. */
+/**
+ * Keeps the popup inside the browser window.
+ *
+ * Applied while dragging and again whenever the window is resized, because a
+ * window made smaller can otherwise leave the timer stranded off-screen with
+ * no way to reach it.
+ */
 function clampToViewport(x, y) {
   const maxX = window.innerWidth - POPUP_WIDTH - EDGE_MARGIN;
-  const maxY = window.innerHeight - 120;
+  const maxY = window.innerHeight - POPUP_HEIGHT - EDGE_MARGIN;
 
   return {
     x: Math.min(Math.max(x, EDGE_MARGIN), Math.max(maxX, EDGE_MARGIN)),
     y: Math.min(Math.max(y, EDGE_MARGIN), Math.max(maxY, EDGE_MARGIN)),
   };
+}
+
+/** The resting place for a desktop utility window: out of the way, bottom right. */
+function getRestingPosition() {
+  return clampToViewport(
+    window.innerWidth - POPUP_WIDTH - EDGE_MARGIN * 2,
+    window.innerHeight - POPUP_HEIGHT - EDGE_MARGIN * 2
+  );
 }
 
 /** Returns the short status word shown under the popup title. */
@@ -53,14 +70,27 @@ function FocusTimerPopup() {
   const timer = useSelector((state) => state.timer);
   const liveTodaySeconds = useSelector(selectLiveTodayFocusSeconds);
 
-  const [position, setPosition] = useState(() =>
-    clampToViewport(window.innerWidth - POPUP_WIDTH - 24, window.innerHeight - 400)
-  );
+  const [position, setPosition] = useState(getRestingPosition);
   // Holds the grab point during a drag. A ref rather than state, because it
   // changes on every pointer move and nothing needs to re-render for it.
   const dragOffset = useRef(null);
 
+  useEffect(() => {
+    function keepOnScreen() {
+      setPosition((current) => clampToViewport(current.x, current.y));
+    }
+
+    window.addEventListener("resize", keepOnScreen);
+    return () => window.removeEventListener("resize", keepOnScreen);
+  }, []);
+
   function handlePointerDown(event) {
+    // Only the bar itself drags. Without this, pressing the close button would
+    // also begin a drag and the click could be swallowed.
+    if (event.target.closest("button")) {
+      return;
+    }
+
     dragOffset.current = {
       x: event.clientX - position.x,
       y: event.clientY - position.y,

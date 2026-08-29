@@ -24,10 +24,11 @@ function TimerControls({
     return (
       <Button
         variant="primary"
+        size={compact ? "md" : "lg"}
         onClick={onStart}
         disabled={!canStart}
         fullWidth={compact}
-        className={compact ? "" : "px-8"}
+        className={compact ? "" : "px-10"}
       >
         Start focus
       </Button>
@@ -36,12 +37,14 @@ function TimerControls({
 
   // Pausing and resuming are the same button in two states, so it keeps the
   // same position and the mouse never has to move between them.
+  const size = compact ? "md" : "lg";
+
   const pauseOrResume = isRunning ? (
-    <Button variant="primary" onClick={onPause} fullWidth={compact}>
+    <Button variant="primary" size={size} onClick={onPause} fullWidth={compact}>
       Pause
     </Button>
   ) : (
-    <Button variant="primary" onClick={onResume} fullWidth={compact}>
+    <Button variant="primary" size={size} onClick={onResume} fullWidth={compact}>
       Resume
     </Button>
   );
@@ -66,10 +69,10 @@ function TimerControls({
   return (
     <>
       {pauseOrResume}
-      <Button variant="secondary" onClick={onReset}>
+      <Button variant="secondary" size={size} onClick={onReset}>
         Reset
       </Button>
-      <Button variant="secondary" onClick={onFinish}>
+      <Button variant="secondary" size={size} onClick={onFinish}>
         Finish session
       </Button>
     </>

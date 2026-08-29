@@ -6,7 +6,7 @@ const PRESET_MINUTES = [25, 50, 90];
  * Chooses the focus length. This is the only required input before starting,
  * which is why it sits above the optional subject and topic fields.
  */
-function DurationSelector({ selectedMinutes, onSelect, disabled }) {
+function DurationSelector({ selectedMinutes, onSelect }) {
   const [customMinutes, setCustomMinutes] = useState("");
 
   const isCustomSelected =
@@ -23,7 +23,7 @@ function DurationSelector({ selectedMinutes, onSelect, disabled }) {
   }
 
   return (
-    <fieldset disabled={disabled}>
+    <fieldset>
       <legend className="mb-2 text-sm font-medium text-ink-muted">
         Focus time
       </legend>
@@ -36,7 +36,7 @@ function DurationSelector({ selectedMinutes, onSelect, disabled }) {
             onClick={() => onSelect(minutes)}
             aria-pressed={selectedMinutes === minutes}
             className={[
-              "rounded-md border px-4 py-2 text-sm transition-colors disabled:opacity-50",
+              "rounded-md border px-4 py-2 text-sm transition-colors",
               selectedMinutes === minutes
                 ? "border-brass bg-brass-wash font-medium text-ink"
                 : "border-rule bg-surface-raised text-ink-muted hover:border-rule-strong hover:text-ink",

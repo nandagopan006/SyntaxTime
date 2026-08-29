@@ -26,6 +26,9 @@ const VARIANTS = {
 };
 
 const SIZES = {
+  // Used for the timer controls, which are pressed constantly during a session
+  // and deserve a target that does not need aiming for.
+  lg: "px-5 py-2.5 text-sm",
   md: "px-4 py-2 text-sm",
   sm: "px-3 py-1.5 text-sm",
 };
@@ -35,6 +38,9 @@ const SIZES = {
  *
  * `isBusy` disables the button and shows `busyLabel`, so an action in flight
  * cannot be fired twice and always says what it is doing.
+ *
+ * A `ref` passes straight through to the button element: React 19 hands refs
+ * to function components as an ordinary prop.
  */
 function Button({
   variant = "secondary",

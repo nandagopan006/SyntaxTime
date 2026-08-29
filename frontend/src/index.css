@@ -132,4 +132,15 @@
   .animate-surface-in {
     animation: none;
   }
+
+  /* Covers everything else too: the timer ring, progress bars and hover
+     colours. Someone who has asked their system for stillness gets it. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
