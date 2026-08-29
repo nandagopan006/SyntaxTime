@@ -48,7 +48,11 @@ function Friends() {
   const [sendingUserId, setSendingUserId] = useState(null);
   const [busyRequest, setBusyRequest] = useState(null); // { id, action }
   const [removingFriendId, setRemovingFriendId] = useState(null);
+  // One line reports how the last action went, either way. Only failures were
+  // reported before, so a request that worked looked the same as nothing
+  // happening at all.
   const [actionError, setActionError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
 
   /** Loads the requests waiting in both directions. */
   async function loadRequests() {
@@ -152,13 +156,20 @@ function Friends() {
     }
   }
 
+  /** Clears the last result, so a new action never shows a stale outcome. */
+  function startAction() {
+    setActionError("");
+    setActionMessage("");
+  }
+
   async function handleSendRequest(user) {
     setSendingUserId(user.id);
-    setActionError("");
+    startAction();
 
     try {
       await sendFriendRequest(user.id);
       await refreshRelationships();
+      setActionMessage(`Friend request sent to ${user.username}.`);
     } catch (error) {
       setActionError(getErrorMessage(error, "Unable to send that friend request."));
     }
@@ -168,11 +179,12 @@ function Friends() {
 
   async function handleAcceptRequest(request) {
     setBusyRequest({ id: request.id, action: "accept" });
-    setActionError("");
+    startAction();
 
     try {
       await acceptFriendRequest(request.id);
       await refreshRelationships();
+      setActionMessage(`You and ${request.user.username} are now study friends.`);
     } catch (error) {
       // Nothing is moved into the friends list unless the server said yes.
       setActionError(getErrorMessage(error, "Unable to accept that request."));
@@ -183,11 +195,12 @@ function Friends() {
 
   async function handleRejectRequest(request) {
     setBusyRequest({ id: request.id, action: "reject" });
-    setActionError("");
+    startAction();
 
     try {
       await rejectFriendRequest(request.id);
       await refreshRelationships();
+      setActionMessage(`Request from ${request.user.username} declined.`);
     } catch (error) {
       setActionError(getErrorMessage(error, "Unable to reject that request."));
     }
@@ -197,11 +210,12 @@ function Friends() {
 
   async function handleRemoveFriend(friend) {
     setRemovingFriendId(friend.id);
-    setActionError("");
+    startAction();
 
     try {
       await removeFriend(friend.id);
       await refreshRelationships();
+      setActionMessage(`${friend.user.username} is no longer a friend.`);
     } catch (error) {
       setActionError(getErrorMessage(error, "Unable to remove that friend."));
     }
@@ -225,6 +239,15 @@ function Friends() {
           role="alert"
         >
           {actionError}
+        </p>
+      )}
+
+      {actionMessage && (
+        <p
+          className="rounded border border-rule bg-surface px-4 py-3 text-sm text-forest"
+          role="status"
+        >
+          {actionMessage}
         </p>
       )}
 

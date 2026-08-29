@@ -131,7 +131,11 @@ const timerSlice = createSlice({
 
     /** Continues from the same remaining time, ignoring the time spent paused. */
     resumeTimer(state, action) {
-      if (state.isCompleted) {
+      // Only a paused timer can resume. Resuming an idle one would set it
+      // running with no startedAt, and the session could then never be saved,
+      // because the API needs a start time. The buttons never offer it, but the
+      // state is what has to make it impossible.
+      if (!state.isPaused || state.isCompleted) {
         return;
       }
 

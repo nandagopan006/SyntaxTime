@@ -11,7 +11,19 @@ import Profile from "./pages/Profile";
 import Register from "./pages/Register";
 
 function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // While a stored token is being checked, nobody knows yet whether this is a
+  // signed-in visit. Deciding early would flash the sign-in form at someone who
+  // is already signed in. With no stored token there is nothing to check and
+  // this passes straight through.
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-ink-muted">Loading SyntaxTime...</p>
+      </div>
+    );
+  }
 
   return (
     <Routes>

@@ -23,6 +23,7 @@ import { enterFocusMode } from "../../features/ui/uiSlice";
 import { formatTime } from "../../utils/formatTime";
 import { buildSessionPayload } from "../../utils/studySession";
 import BreakTimer from "./BreakTimer";
+import { SUBJECT_MAX_LENGTH, TOPIC_MAX_LENGTH } from "../../utils/studySession";
 import DurationSelector from "./DurationSelector";
 import SessionCompletion from "./SessionCompletion";
 import TimerControls from "./TimerControls";
@@ -209,6 +210,7 @@ function FocusTimer() {
             value={timer.subject}
             onChange={(event) => dispatch(setSubject(event.target.value))}
             placeholder="JavaScript"
+            maxLength={SUBJECT_MAX_LENGTH}
             className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm"
           />
         </div>
@@ -223,6 +225,7 @@ function FocusTimer() {
             value={timer.topic}
             onChange={(event) => dispatch(setTopic(event.target.value))}
             placeholder="Promises"
+            maxLength={TOPIC_MAX_LENGTH}
             className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm"
           />
         </div>

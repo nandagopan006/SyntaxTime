@@ -36,6 +36,9 @@ function History() {
 
   const [selectedSession, setSelectedSession] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  // Confirms an edit actually reached the database. The form closes on success,
+  // so without this the only sign of a saved change was the change itself.
+  const [savedMessage, setSavedMessage] = useState("");
 
   const [subjects, setSubjects] = useState([]);
 
@@ -154,6 +157,7 @@ function History() {
     );
     setSelectedSession(updatedSession);
     setIsEditing(false);
+    setSavedMessage("Session updated.");
   }
 
   const hasActiveFilters =
@@ -219,6 +223,7 @@ function History() {
                 onSelect={(session) => {
                   setSelectedSession(session);
                   setIsEditing(false);
+                  setSavedMessage("");
                 }}
               />
 
@@ -261,10 +266,21 @@ function History() {
               onSaved={handleSessionSaved}
             />
           ) : (
-            <SessionDetails
-              session={selectedSession}
-              onEdit={() => setIsEditing(true)}
-            />
+            <>
+              {savedMessage && (
+                <p className="mb-4 text-sm text-forest" role="status">
+                  {savedMessage}
+                </p>
+              )}
+
+              <SessionDetails
+                session={selectedSession}
+                onEdit={() => {
+                  setSavedMessage("");
+                  setIsEditing(true);
+                }}
+              />
+            </>
           )}
         </aside>
       </div>

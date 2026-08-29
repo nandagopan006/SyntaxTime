@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { formatStudyTime } from "../../utils/formatTime";
+import { SUBJECT_MAX_LENGTH, TOPIC_MAX_LENGTH } from "../../utils/studySession";
 import BreakOffer from "./BreakOffer";
 
 /*
@@ -79,6 +80,7 @@ function SessionCompletion({
                   value={subject}
                   onChange={(event) => setSubject(event.target.value)}
                   placeholder="Python"
+                  maxLength={SUBJECT_MAX_LENGTH}
                   className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
                 />
               </div>
@@ -96,6 +98,7 @@ function SessionCompletion({
                   value={topic}
                   onChange={(event) => setTopic(event.target.value)}
                   placeholder="Django REST authentication"
+                  maxLength={TOPIC_MAX_LENGTH}
                   className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
                 />
               </div>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { getErrorMessage } from "../../services/api";
 import { updateStudySession } from "../../services/studyService";
 import { formatStudyMinutes } from "../../utils/formatTime";
+import { SUBJECT_MAX_LENGTH, TOPIC_MAX_LENGTH } from "../../utils/studySession";
 
 /*
   Filling in what a session was about, after the fact.
@@ -66,6 +67,7 @@ function EditSessionForm({ session, onCancel, onSaved }) {
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
             placeholder="Python"
+            maxLength={SUBJECT_MAX_LENGTH}
             className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
           />
         </div>
@@ -80,6 +82,7 @@ function EditSessionForm({ session, onCancel, onSaved }) {
             value={topic}
             onChange={(event) => setTopic(event.target.value)}
             placeholder="Django REST authentication"
+            maxLength={TOPIC_MAX_LENGTH}
             className="mt-1 w-full rounded border border-rule px-3 py-2 text-sm disabled:opacity-60"
           />
         </div>

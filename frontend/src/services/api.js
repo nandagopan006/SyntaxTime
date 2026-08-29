@@ -26,6 +26,22 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+// Called when a session cannot be refreshed and the user has to sign in again.
+// This module cannot reach React state directly, so whoever owns that state
+// registers what to do here.
+let onSessionExpired = null;
+
+/**
+ * Registers what should happen when a session can no longer be refreshed.
+ *
+ * Without this the tokens would be thrown away while the application still
+ * believed someone was signed in, leaving them on a dashboard where every
+ * request quietly fails.
+ */
+export function setSessionExpiredHandler(handler) {
+  onSessionExpired = handler;
+}
+
 // Attach the access token to every request, so individual services never
 // have to think about authentication headers.
 api.interceptors.request.use((config) => {
@@ -58,6 +74,15 @@ async function requestNewAccessToken() {
   }
 }
 
+// Signing in with the wrong password also answers 401. That is a rejected
+// attempt, not an expired session, so these endpoints skip the refresh path
+// below entirely.
+const AUTH_ENDPOINTS = ["/auth/login/", "/auth/register/", "/auth/refresh/"];
+
+function isSignInAttempt(request) {
+  return AUTH_ENDPOINTS.some((endpoint) => request.url?.endsWith(endpoint));
+}
+
 // When the access token has expired the API answers 401. Try the refresh token
 // once and replay the original request, so the user never sees the expiry.
 api.interceptors.response.use(
@@ -66,7 +91,12 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     const isExpired = error.response?.status === 401;
 
-    if (isExpired && originalRequest && !originalRequest.hasBeenRetried) {
+    if (
+      isExpired &&
+      originalRequest &&
+      !originalRequest.hasBeenRetried &&
+      !isSignInAttempt(originalRequest)
+    ) {
       originalRequest.hasBeenRetried = true;
 
       const newAccessToken = await requestNewAccessToken();
@@ -75,7 +105,11 @@ api.interceptors.response.use(
         return api(originalRequest);
       }
 
+      // The session is over and cannot be recovered. Throwing the tokens away
+      // is not enough on its own: the application has to be told, or it keeps
+      // rendering a signed-in interface that can no longer load anything.
       clearTokens();
+      onSessionExpired?.();
     }
 
     return Promise.reject(error);
