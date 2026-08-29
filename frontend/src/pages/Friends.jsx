@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import FriendRequests from "../components/friends/FriendRequests";
 import FriendsList from "../components/friends/FriendsList";
 import UserSearch from "../components/friends/UserSearch";
+import Leaderboard from "../components/leaderboard/Leaderboard";
 import { getErrorMessage } from "../services/api";
 import {
   acceptFriendRequest,
@@ -226,6 +227,12 @@ function Friends() {
           {actionError}
         </p>
       )}
+
+      {/* First on the page, because comparing progress is what brings someone
+          back to Friends. Searching and answering requests are occasional. */}
+      <div className="border-t border-rule pt-6">
+        <Leaderboard />
+      </div>
 
       <div className="grid gap-8 border-t border-rule pt-6 lg:grid-cols-2 items-start">
         <UserSearch

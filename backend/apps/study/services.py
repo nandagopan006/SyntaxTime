@@ -1,5 +1,6 @@
 """Study calculations that more than one view needs."""
 
+from calendar import monthrange
 from datetime import timedelta
 
 from django.db.models import Count, Sum
@@ -106,6 +107,33 @@ def get_average_session_minutes(user):
     return round((totals["focused_minutes"] or 0) / totals["sessions_count"])
 
 
+def get_current_week_range():
+    """
+    Returns the Monday and Sunday of the week containing today.
+
+    A SyntaxTime week runs Monday to Sunday. Defined once here so the weekly
+    chart on Home and the weekly leaderboard can never disagree about which
+    days they are counting.
+    """
+    today = timezone.localdate()
+    monday = today - timedelta(days=today.weekday())
+
+    return monday, monday + timedelta(days=6)
+
+
+def get_current_month_range():
+    """
+    Returns the first and last day of the current calendar month.
+
+    A calendar month, not the last thirty days: sessions from 31 July never
+    count towards August.
+    """
+    today = timezone.localdate()
+    last_day = monthrange(today.year, today.month)[1]
+
+    return today.replace(day=1), today.replace(day=last_day)
+
+
 def get_weekly_statistics(user):
     """
     Returns focused minutes for each day of the current week, Monday to Sunday.
@@ -113,9 +141,7 @@ def get_weekly_statistics(user):
     Days without study are included with zero, so the chart always draws seven
     bars and a quiet day is visible as a gap rather than missing entirely.
     """
-    today = timezone.localdate()
-    monday = today - timedelta(days=today.weekday())
-    sunday = monday + timedelta(days=6)
+    monday, sunday = get_current_week_range()
 
     # order_by() is required, not decoration: the model orders by started_at by
     # default, and Django would otherwise add that column to the GROUP BY and

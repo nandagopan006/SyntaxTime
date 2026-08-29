@@ -46,28 +46,54 @@ export function formatSessionDate(isoTimestamp) {
 }
 
 /**
+ * Reads an API date such as "2026-08-24" as a local calendar date.
+ *
+ * Split into parts rather than handed to Date directly, because a bare
+ * "2026-08-24" is read as UTC midnight and can land on the previous day.
+ */
+function parseApiDate(isoDate) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+
+  return new Date(year, month - 1, day);
+}
+
+/**
  * Returns the short weekday name for an API date such as "2026-08-24".
  * Used for the weekly chart's axis, where "Mon" is all there is room for.
  */
 export function formatWeekdayLabel(isoDate) {
-  // Parsed as parts rather than passed to Date directly, because a bare
-  // "2026-08-24" is read as UTC midnight and can land on the previous day.
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-
-  return date.toLocaleDateString(undefined, { weekday: "short" });
+  return parseApiDate(isoDate).toLocaleDateString(undefined, { weekday: "short" });
 }
 
 /** True when an API date string is the user's current local day. */
 export function isToday(isoDate) {
-  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = parseApiDate(isoDate);
   const today = new Date();
 
   return (
-    year === today.getFullYear() &&
-    month === today.getMonth() + 1 &&
-    day === today.getDate()
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
   );
+}
+
+/**
+ * Formats an API date as "24 Aug", for the ends of a leaderboard week.
+ * The year is left off: both ends are always in the week just described.
+ */
+export function formatShortDate(isoDate) {
+  return parseApiDate(isoDate).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** Formats an API date as the month it falls in, such as "August 2026". */
+export function formatMonthLabel(isoDate) {
+  return parseApiDate(isoDate).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
 }
 
 /**

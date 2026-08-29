@@ -1,15 +1,17 @@
-# SyntaxTime
+  # SyntaxTime
 
 SyntaxTime is a personal desktop-first study application for tracking focused
 study sessions. It is built mainly for Windows laptop and desktop use.
 
 ## Current phase
 
-**Phase 1 — Project foundation.**
+**Phase 15 — Study leaderboard.**
 
-This phase sets up the project structure, the frontend, the backend, the
-database connection and the development environment. No application features
-are implemented yet.
+The focus timer, dashboard, study history, friends and the friend leaderboard
+are all in place. See the API sections below for the endpoints behind them.
+
+Note: the project structure section further down still describes the Phase 1
+layout and has not been refreshed.
 
 ## Technology stack
 
@@ -183,18 +185,55 @@ history, subjects, topics and email addresses are never part of any friends
 response. The leaderboard in a later phase needs only aggregate focused
 minutes, so no further access is required.
 
+## Leaderboard API
+
+The leaderboard ranks the signed-in user and their accepted friends by how many
+focused minutes each of them has actually recorded.
+
+**There is no leaderboard table.** A ranking is not a fact worth storing - it is
+a question asked of two things that already exist, `Friendship` and
+`StudySession`. A stored copy would go stale the moment anyone finished a
+session. `apps/leaderboard/` therefore has no `models.py` and no migrations.
+
+### Endpoints
+
+Both require authentication and are read-only.
+
+| Method | Path | Period |
+| --- | --- | --- |
+| `GET` | `/api/leaderboard/weekly/` | the current Monday-to-Sunday week |
+| `GET` | `/api/leaderboard/monthly/` | the current calendar month |
+
+### Response
+
+```json
+{
+  "period": "weekly",
+  "start_date": "2026-08-24",
+  "end_date": "2026-08-30",
+  "entries": [
+    {"rank": 1, "user_id": 2, "username": "nandhu",
+     "focused_minutes": 250, "is_current_user": true}
+  ]
+}
+```
+
+### Rules
+
+- Only `status = "completed"` sessions count. Cancelled sessions, break time and
+  a timer still running all contribute nothing.
+- Only `focused_minutes` counts, never the planned length of a session.
+- Only accepted friendships qualify; the list of people is read from the
+  database, never from the request.
+- A friend who studied nothing still appears, at `0`.
+- The signed-in user is always on their own board, however far down.
+- Ties are broken by username, so the same question always gets the same order.
+- An entry carries a rank, an id, a username and a number of minutes. No notes,
+  subjects, timestamps or email addresses leave this endpoint.
+
 ## Not implemented yet
 
 These belong to later phases and are intentionally absent:
 
-- Authentication and JWT
-- React Router, Redux Toolkit, Axios
-- Recharts and Lucide React
-- Django apps for accounts, study and friends
-- StudySession and DailyGoal models
-- API endpoints
-- Focus timer, Focus Mode and the timer popup
-- History, statistics, streaks and live daily study time
-- The friends leaderboard (the friendships behind it now exist)
-- Profile
-- Neo-classical visual design
+- Profile statistics
+- Notifications
