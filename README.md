@@ -316,8 +316,19 @@ cd frontend
 npm run desktop:build
 ```
 
-The binary lands in `frontend/src-tauri/target/release/`. The Rust build
-directory is large and is not committed.
+This produces two things under `frontend/src-tauri/target/release/`:
+
+| File | What it is |
+| --- | --- |
+| `syntaxtime.exe` | The application itself, about 9 MB |
+| `bundle/nsis/SyntaxTime_0.1.0_x64-setup.exe` | A Windows installer, about 2 MB |
+
+The first build downloads the NSIS toolchain, so it takes longer than later
+ones. The whole Rust build directory is large and is not committed.
+
+The installed application still needs the Django backend running on port
+8001; SyntaxTime is a desktop client for its own API, not a self-contained
+program.
 
 ## Registration and email verification
 
@@ -724,7 +735,6 @@ point, not an oversight:
 | History search covers the selected month only | Finding a note from six months ago means navigating to that month. |
 | The leaderboard fetches every entry to preview three | Bounded by friend count; fine to a few hundred. |
 | The resend cooldown lives in the default local-memory cache | Per process, forgotten on restart. A shared cache is needed before running several workers. |
-| The Windows installer has not been built | `--no-bundle` produces a working `.exe`; the NSIS installer step is unproven. |
 
 ## Tests
 
