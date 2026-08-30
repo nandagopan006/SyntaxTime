@@ -174,6 +174,14 @@ SIMPLE_JWT = {
 # The frontend runs on a different port, so the browser treats it as a separate
 # origin. Without this, future API calls would be blocked.
 CORS_ALLOWED_ORIGINS = [
+    # The Vite dev server, which is also what the desktop application loads
+    # during development.
     "http://localhost:5180",
     "http://127.0.0.1:5180",
+    # The installed desktop application. It does not serve from a dev server:
+    # Tauri serves the packaged build over its own protocol, which the browser
+    # treats as a different origin. Windows uses http://tauri.localhost, and
+    # the other platforms use the tauri:// scheme.
+    "http://tauri.localhost",
+    "tauri://localhost",
 ]

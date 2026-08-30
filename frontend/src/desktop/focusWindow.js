@@ -117,6 +117,30 @@ export async function closeFocusWindow() {
 }
 
 /**
+ * Brings the main SyntaxTime window forward from the focus window.
+ *
+ * It may be hidden rather than merely behind something: closing the main
+ * window now leaves the application running in the notification area, so this
+ * has to show and unminimise it, not just focus it.
+ */
+export async function showMainWindow() {
+  if (!isDesktopApp()) {
+    return false;
+  }
+
+  const { Window } = await import("@tauri-apps/api/window");
+  const mainWindow = await Window.getByLabel("main");
+  if (!mainWindow) {
+    return false;
+  }
+
+  await mainWindow.show();
+  await mainWindow.unminimize();
+  await mainWindow.setFocus();
+  return true;
+}
+
+/**
  * Hides the window this code is running in.
  *
  * Used by the focus window's own close button. Addressing the current window

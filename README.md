@@ -298,6 +298,42 @@ implementation of anything.
 A focus window that has just been reopened asks for the current state rather
 than waiting up to a second for the next broadcast.
 
+### Living in the notification area
+
+Closing the main window does not quit SyntaxTime. Both windows hide instead,
+and the application carries on in the notification area - a study timer that
+stops because its window was tidied away is not a study timer.
+
+The tray icon has three items and no more:
+
+| | |
+| --- | --- |
+| **Open SyntaxTime** | brings the main window back |
+| **Focus timer** | shows the compact window, always on top |
+| **Quit** | the only way out |
+
+A left click on the icon just reopens the main window, which is what people
+expect of a tray icon; the menu is on the right button. Quit is deliberately
+the only exit: every window hides rather than closes, so without it the
+application could not be quit at all.
+
+### Surviving a restart
+
+A session that is running when SyntaxTime closes is written to local storage
+and read back on startup, so closing the application forty minutes into a
+ninety minute session no longer loses the forty minutes.
+
+**A restored session comes back paused**, holding exactly the time it had. It
+is never resumed as though it had been running the whole time the application
+was shut. SyntaxTime cannot tell whether it was closed for two minutes or
+overnight, and counting that gap as study time would feed invented minutes
+into every total, streak and leaderboard that reads from the timer. Restoring
+loses at most a few seconds; resuming blindly could gain hours.
+
+The snapshot is refreshed every five seconds while a session runs, and again
+on the way out. Anything malformed, from an older version, or describing a
+session that could not have happened is thrown away rather than restored.
+
 ### Windows and permissions
 
 Both windows are declared in `src-tauri/tauri.conf.json`. Declaring the focus
@@ -729,8 +765,7 @@ point, not an oversight:
 
 | Limitation | Why it stands |
 | --- | --- |
-| A running session is lost if the application restarts | The timer lives in memory. Persisting it needs a decision about what "closed for six hours" should mean. |
-| No system tray, so closing the main window quits | The focus window covers the common case of working elsewhere. |
+| A session finished but not yet recorded is lost on restart | Only running and paused sessions are remembered; the completion form is not. |
 | Signing in elsewhere survives a password reset | SimpleJWT tokens are signed, not stored, and the blacklist app is not installed. Access tokens last 30 minutes, refresh tokens 7 days. |
 | History search covers the selected month only | Finding a note from six months ago means navigating to that month. |
 | The leaderboard fetches every entry to preview three | Bounded by friend count; fine to a few hundred. |
