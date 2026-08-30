@@ -1,26 +1,39 @@
   # SyntaxTime
 
-SyntaxTime is a personal desktop-first study application for tracking focused
-study sessions. It is built mainly for Windows laptop and desktop use.
+SyntaxTime is a personal study application for tracking focused study
+sessions. It runs as a **Windows desktop application** built with Tauri, and
+the same code runs in a browser for development.
+
+The point of the desktop build is one thing a web page cannot do: a compact
+timer window that stays visible above VS Code, the browser and everything
+else, so a session can be watched without leaving the work.
 
 ## Current phase
 
-**Phase 22 — Forgot password and password reset.**
+**Phase 23 — Windows desktop application and the native focus window.**
 
 Every planned feature is built: the focus timer, Home dashboard, study
-history, friends, the leaderboard and the personal profile. See the API
-sections below for the endpoints behind them.
+history, friends, the leaderboard, the personal profile, email-verified
+registration, password reset, and the desktop shell. See the sections below
+for the endpoints and the desktop architecture behind them.
 
 ## Technology stack
 
 | Layer            | Technology                |
 | ---------------- | ------------------------- |
+| Desktop shell    | Tauri 2, Rust             |
 | Frontend         | React, Vite, JavaScript   |
+| State            | Redux Toolkit             |
 | Styling          | Tailwind CSS              |
+| Charts           | Recharts                  |
 | Backend          | Python, Django            |
 | API framework    | Django REST Framework     |
 | Database         | Neon (PostgreSQL)         |
+| Transactional email | Brevo                  |
 | Version control  | Git, GitHub               |
+
+Rust and Tauri are only the desktop shell: they open windows and nothing
+else. No study logic lives in Rust.
 
 ## How it fits together
 
@@ -36,42 +49,73 @@ Django REST             validation, ownership, business rules
 PostgreSQL              the only place anything is stored
 ```
 
-Two rules hold the whole thing together:
+On the desktop there are two native windows, and they are still one timer:
+
+```
+        main window                          focus window
+        the whole application                a compact always-on-top clock
+        the countdown runs here   ── state ──▶ draws what it is sent
+        dispatches Redux actions  ◀ command ── Pause / Resume / Reset / Finish
+```
+
+Three rules hold the whole thing together:
 
 - **One timer.** `features/timer/timerSlice.js` holds the running session and
-  `hooks/useTimer.js` is the only countdown. Home, the popup and Focus Mode are
-  three views of that one state, never three timers.
+  `hooks/useTimer.js` is the only countdown. Home, the popup, Focus Mode and
+  the native focus window are four views of that one state, never four timers.
 - **Statistics are derived, never stored.** Streaks, leaderboards and profile
   totals are calculated from `StudySession` on request. There is no table of
   precomputed figures to go stale.
+- **Every page is a summary, never an archive.** Home shows today and this
+  week, History opens one month at a time, and friends, requests and search
+  all arrive a page at a time. Nothing grows without limit as the years pass.
 
 ## Project structure
 
 ```
-frontend/src/
-├── app/store.js            the Redux store
-├── features/               Redux slices and the state they own
-│   ├── timer/              the active session, and its status wording
-│   ├── statistics/         saved study data shared across pages
-│   └── ui/                 popup and focus-mode visibility
-├── components/
-│   ├── ui/                 Button, Section, PageHeader, Empty/LoadingState
-│   ├── layout/             shell, sidebar, top bar, error boundary
-│   ├── timer/              focus timer, popup, focus mode, break
-│   ├── dashboard/          Home sections
-│   ├── history/            session list, detail, edit
-│   ├── friends/            search, requests, friends
-│   └── profile/            personal overview
-├── context/AuthContext.jsx the signed-in user
-├── hooks/                  useTimer, useTimerShortcuts
-├── pages/                  Home, History, Friends, Profile, Login, Register
-├── services/               one file per API area
-└── utils/                  time, date and session formatting
+frontend/
+├── index.html              the main window's page
+├── focus-window.html       the focus window's own page, a second Vite entry
+├── src-tauri/              the desktop shell
+│   ├── src/main.rs         opens windows; no study logic lives here
+│   ├── tauri.conf.json     both windows, their sizes and always-on-top
+│   ├── capabilities/       what the windows may do: windows and events only
+│   └── icons/              generated from icons/source.svg
+└── src/
+    ├── app/store.js            the Redux store
+    ├── features/               Redux slices and the state they own
+    │   ├── timer/              the active session, its status and phase
+    │   ├── statistics/         saved study data shared across pages
+    │   └── ui/                 popup and focus-mode visibility
+    ├── desktop/                everything that only exists on the desktop
+    │   ├── isDesktop.js        Tauri present, or an ordinary browser?
+    │   ├── focusWindow.js      showing, hiding and placing the focus window
+    │   └── desktopEvents.js    the state and command channel between windows
+    ├── components/
+    │   ├── ui/                 Button, Section, PageHeader, Empty/LoadingState
+    │   ├── layout/             shell, sidebar, top bar, error boundary
+    │   ├── auth/               PasswordInput, ProtectedRoute
+    │   ├── timer/              clock, setup, duration picker, controls,
+    │   │                       completion, break, popup, focus mode
+    │   ├── dashboard/          Home sections
+    │   ├── history/            month navigator, summary, list, detail, edit
+    │   ├── friends/            search, requests, friends, load more
+    │   ├── leaderboard/        the friend ranking
+    │   └── profile/            personal overview
+    ├── context/AuthContext.jsx the signed-in user
+    ├── hooks/                  useTimer, useTimerShortcuts,
+    │                           useFocusWindowBridge, usePaginatedList
+    ├── pages/                  Home, History, Friends, Profile, Login,
+    │                           Register, VerifyEmail, ForgotPassword,
+    │                           ResetPassword, FocusWindow
+    ├── services/               one file per API area
+    └── utils/                  time, date and session formatting
 
 backend/
 ├── config/                 settings and root URLs
 └── apps/
-    ├── accounts/           registration, login, the current user
+    ├── accounts/           registration, OTP verification, login,
+    │                       password reset, the current user
     ├── study/              StudySession, DailyGoal, all study statistics
     ├── friends/            Friendship and friend requests
     └── leaderboard/        ranking; no models, it only reads the other two
@@ -163,14 +207,117 @@ cd frontend
 npm install
 ```
 
-## Running the frontend
+## Running it
+
+There are two ways to run SyntaxTime, and both use the same React code.
+
+### As the desktop application
+
+```
+cd frontend
+npm run desktop
+```
+
+This is the real thing. Tauri starts Vite itself, compiles the Rust shell and
+opens the application in its own window - **do not start `npm run dev`
+separately**, or port 5180 will already be taken and Tauri will refuse to
+start. The first run compiles Rust and takes a minute or two; later runs are
+seconds.
+
+The backend still has to be running on port 8001.
+
+### In a browser
 
 ```
 cd frontend
 npm run dev
 ```
 
-Then open http://localhost:5180.
+Then open http://localhost:5180. Everything works except the native focus
+window, which falls back to an in-page panel - a web page cannot float above
+other applications, and SyntaxTime does not pretend otherwise.
+
+## The desktop application
+
+### The focus window
+
+The reason the desktop build exists. Start a session, press **Focus timer** in
+the top bar, and a small window appears in the lower right of the screen and
+**stays above every other application**. Switch to VS Code and it is still
+there.
+
+```
+┌──────────────────────────┐
+│ SyntaxTime            ×  │  ← drag anywhere on this bar
+├──────────────────────────┤
+│          FOCUS           │
+│          42:18           │
+│        JavaScript        │
+│         Promises         │
+│       Today 2h 43m       │
+│        [  Pause  ]       │
+│    [Finish]   [Reset]    │
+└──────────────────────────┘
+```
+
+- **Always on top**, set in the window configuration and re-asserted every
+  time the window is opened, because Windows can drop the flag.
+- **Resizable**, from 240x210 to 560x720. Everything inside is measured
+  against the window rather than fixed, so the clock, the type and the
+  controls all scale with it. Below 330px tall the subject, topic and daily
+  total drop away; the clock and the controls never do.
+- **Draggable** by its header. The header ignores presses on the close button,
+  because starting a native drag swallows the click that would have closed the
+  window.
+- **Closing it closes a view, never a timer.** The window is hidden rather
+  than destroyed, and that is enforced in Rust, where the operating system's
+  close button is intercepted. Reopen it and it shows the session as it is
+  now.
+
+### How the two windows stay in step
+
+Tauri gives each window its own webview, which means its own React tree and
+its own Redux store. Two stores would be two timers, so only one of them
+counts:
+
+| | Main window | Focus window |
+| --- | --- | --- |
+| Runs the countdown | yes | never |
+| Holds Redux state | yes | no |
+| Calls the API | yes | no |
+| Draws the timer | yes | yes |
+| Sends commands | - | yes |
+
+`hooks/useFocusWindowBridge.js` sits beside `useTimer` in the main window. It
+broadcasts the timer once a second while a session runs, and immediately on
+any change, so pausing looks instant. The focus window sends back one of four
+intentions - pause, resume, reset, finish - and the bridge turns each into the
+same Redux action the main window's own buttons dispatch. There is no second
+implementation of anything.
+
+A focus window that has just been reopened asks for the current state rather
+than waiting up to a second for the next broadcast.
+
+### Windows and permissions
+
+Both windows are declared in `src-tauri/tauri.conf.json`. Declaring the focus
+window rather than creating it at runtime means there can only ever be one of
+it, and that the frontend never needs permission to create windows at all.
+
+`src-tauri/capabilities/default.json` grants only what the two windows use:
+showing, hiding, focusing, positioning, dragging, and sending and receiving
+events. **No filesystem, no shell, no process control, no network
+capability.**
+
+### Building a Windows executable
+
+```
+cd frontend
+npm run desktop:build
+```
+
+The binary lands in `frontend/src-tauri/target/release/`. The Rust build
+directory is large and is not committed.
 
 ## Registration and email verification
 
@@ -297,6 +444,74 @@ keeps working until it expires, up to seven days. Revoking them would mean
 adding token blacklisting, which is a larger change than this feature
 justifies. Access tokens last 30 minutes.
 
+## Home
+
+Home answers one question: what should I know right now? Today and this week
+only - the long record is in History, the full ranking is in Friends, and the
+lifetime figures are in Profile.
+
+It asks for a fixed, small amount of data however large the account is: the
+recent-sessions list is requested with a limit of five, today's subjects fold
+to the top five, and the leaderboard preview shows three places plus the
+user's own. While a session is running the supporting sections dim slightly
+and lift again when reached for, so a bar chart is not competing with the
+countdown.
+
+## Study history
+
+History is an archive rather than a feed. A user who studies for three years
+should open it as fast as one who started last week, so it is read one month
+at a time.
+
+### Navigating
+
+It opens on the current month and moves with the arrows either side of the
+title, or with the month and year selects for longer jumps. The year picker
+offers only the years the user actually studied in, and the next-month arrow
+is disabled on the current month - there is no history in a month that has
+not happened.
+
+### Endpoints
+
+| Method | Path                          | Purpose                          |
+| ------ | ----------------------------- | -------------------------------- |
+| GET    | `/api/study/history/`         | One page of completed sessions   |
+| GET    | `/api/study/history/summary/` | Totals for the same selection    |
+| GET    | `/api/study/sessions/<id>/`   | One session                      |
+| PATCH  | `/api/study/sessions/<id>/`   | Fill in subject, topic or notes  |
+
+Both list and summary take the same parameters - `start_date`, `end_date`,
+`subject`, `search` - and are requested together, so the figures above the
+archive always describe the sessions listed below them.
+
+### The month summary
+
+```
+AUGUST 2026
+
+Focused        Sessions      Study days
+18h 42m        32            18
+```
+
+Counted by Django, not the browser, so the totals cover the whole month rather
+than the page of it that has been fetched. **Study days are unique calendar
+dates**: three sessions in one evening are one study day. A search or a subject
+filter narrows the totals too, because numbers that do not describe what is on
+screen are worse than no numbers.
+
+### Within a month
+
+Sessions are grouped by day, newest first, and each day carries its own count
+and total:
+
+```
+29 AUGUST ─────────────── 3 sessions · 2h 15m
+  JavaScript · Promises                   47m
+  React · Hooks                           48m
+```
+
+Twenty sessions load at a time, with `Load older sessions` for the rest.
+
 ## Friends API
 
 A `Friendship` row records the connection between two users and how it came
@@ -333,6 +548,15 @@ JWT, never from the request body.
 
 Rejecting sets the status to `rejected` and nothing more. It declines one
 request; the pair can ask again later, because a rejection is not a block.
+
+### Scale
+
+Friends, pending requests and search results all grow without limit, so all
+three are paginated: twenty at a time for friends and requests, ten for
+search, each with its own `Load more` and a `Showing 20 of 45` line. The
+leaderboard folds to the top ten with `Show all`, and somebody ranked
+twenty-fifth still gets their own row below the fold - folding may hide
+places, never the user's own.
 
 ### Privacy
 
@@ -429,8 +653,87 @@ derived from `StudySession` on request.
 Cancelled sessions, break minutes and a timer still running contribute to none
 of it. Notes, topics and timestamps never leave this endpoint.
 
+## Development history
+
+What was built, in the order it was built. Taken from the commit history
+rather than a plan, so it says what actually happened.
+
+| # | What it added | Commit |
+| --- | --- | --- |
+| 1 | Project foundation: Vite, Django, Neon | `79fe6ad`, `32041ca` |
+| 2 | Authentication: JWT login, protected routes | `b7cb11b` |
+| 3 | Application shell, sidebar and navigation | `74e185a` |
+| 4 | Redux Toolkit state foundation | `70c0e13` |
+| 5 | Study data models: `StudySession`, `DailyGoal` | `90977c4` |
+| 6 | Study session APIs | `2501390` |
+| 7 | The focus timer | `526ab2c` |
+| 8 | Live daily focus tracking | `d033a67` |
+| 9 | Session completion and the learning record | `e039258` |
+| 10 | The compact in-page timer popup | `08b446a` |
+| 11 | Focus Mode and the break timer | `56d1fc9` |
+| 12 | Home analytics: weekly chart, subjects, recent sessions | `1531f0f` |
+| 13 | Study history and learning memory | `40f37da` |
+| 14 | Friends and friend requests | `ebd3756` |
+| 15 | Weekly and monthly study leaderboard | `3c0a021` |
+| 16 | Profile and personal study overview | `d71fe18` |
+| 17 | Hardening: session recovery, loading, empty and error states | `c98a54a` |
+| 18 | The Neo-classical visual language | `d37f9e4` |
+| 19 | Desktop UX for Windows laptops | `4f6425f` |
+| 20 | Code quality and architecture cleanup | folded into later work |
+| 21 | Email-verified registration with a Brevo OTP | `6238758` |
+| 22 | Forgot password and secure password reset | `6238758` |
+| — | Focus session redesign: clock, setup, duration picker | `f82ff51` |
+
+### Not yet committed
+
+The most recent work is still in the working tree:
+
+- **Application shell scroll fix.** An absolutely positioned element with no
+  positioned ancestor escaped the scroll container and stretched the page,
+  which put a second scrollbar on the window and a band of dead space under
+  the whole application. `main` is now a containing block.
+- **History as a month archive.** Month and year navigation, a summary
+  endpoint, and per-day totals, so a year of study is twelve short pages
+  instead of one endless scroll.
+- **Friends pagination.** Friends, requests and user search all arrive a page
+  at a time, and the leaderboard folds to the top ten.
+- **Home scaling.** Today's subjects fold to the top five, and the supporting
+  sections step back while a session runs.
+- **Phase 23: the Windows desktop application.** Tauri 2, and the native
+  always-on-top focus window.
+
 ## Not implemented yet
 
-These belong to later phases and are intentionally absent:
+Deliberately absent:
 
-- Notifications
+- **Notifications** - the one planned feature never built.
+- **Change password from Profile** - password *reset* exists; changing a known
+  password while signed in does not.
+- **Offline use** - every page needs the API.
+
+## Known limitations
+
+Honest gaps rather than absent features. Each one is a deliberate stopping
+point, not an oversight:
+
+| Limitation | Why it stands |
+| --- | --- |
+| A running session is lost if the application restarts | The timer lives in memory. Persisting it needs a decision about what "closed for six hours" should mean. |
+| No system tray, so closing the main window quits | The focus window covers the common case of working elsewhere. |
+| Signing in elsewhere survives a password reset | SimpleJWT tokens are signed, not stored, and the blacklist app is not installed. Access tokens last 30 minutes, refresh tokens 7 days. |
+| History search covers the selected month only | Finding a note from six months ago means navigating to that month. |
+| The leaderboard fetches every entry to preview three | Bounded by friend count; fine to a few hundred. |
+| The resend cooldown lives in the default local-memory cache | Per process, forgotten on restart. A shared cache is needed before running several workers. |
+| The Windows installer has not been built | `--no-bundle` produces a working `.exe`; the NSIS installer step is unproven. |
+
+## Tests
+
+```
+cd backend
+venv\Scripts\activate
+python manage.py test
+```
+
+266 backend tests cover the study, accounts, friends and leaderboard apps:
+ownership on every endpoint, the OTP and password-reset rules, the statistics
+definitions, and that break minutes never reach a study total.
