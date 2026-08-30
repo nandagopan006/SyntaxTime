@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the SyntaxTime windows are allowed to do. Windows and events only: no filesystem, no shell, no process control.",
+  "windows": ["main", "focus"],
+  "permissions": [
+    "core:default",
+
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit",
+    "core:event:allow-emit-to",
+
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-is-visible",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-position",
+    "core:window:allow-outer-size",
+    "core:window:allow-scale-factor",
+    "core:window:allow-current-monitor",
+    "core:window:allow-primary-monitor",
+    "core:window:allow-start-dragging"
+  ]
+}

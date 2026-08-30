@@ -1,38 +1,204 @@
 @import "tailwindcss";
 
 /*
-  Neo-classical design tokens for SyntaxTime.
+  The SyntaxTime design system.
 
-  Colours and fonts are defined once here rather than repeated as hex codes
-  across components. Tailwind v4 turns each token into utility classes, so
-  --color-parchment gives bg-parchment, text-parchment and border-parchment.
+  One warm, quiet palette meant to read like paper under a desk lamp: ivory
+  ground, ink text, and brass used sparingly enough that it still means
+  something when it appears.
+
+  Everything is defined once here rather than repeated as hex codes across
+  components. Tailwind v4 turns each token into utilities, so --color-parchment
+  gives bg-parchment, text-parchment and border-parchment.
 */
 @theme {
-  /* Surfaces: warm ivory and parchment */
-  --color-parchment: #f4efe4;
+  /* Surfaces, from the page ground upwards. */
+  --color-parchment: #f2ede1;
   --color-surface: #fbf8f1;
-  --color-surface-sunken: #ece5d6;
+  --color-surface-raised: #fdfbf6;
+  --color-surface-sunken: #ebe4d4;
 
-  /* Text: deep ink and charcoal */
+  /* Text: deep ink, then two quieter steps for supporting information. */
   --color-ink: #1f1c18;
   --color-ink-muted: #5c554a;
   --color-ink-faint: #8a8172;
 
-  /* Accent: restrained antique brass, used sparingly */
+  /* Antique brass. Reserved for what matters: primary actions, the active
+     page, focus rings, and the one number a section is really about. */
   --color-brass: #9c7c38;
+  --color-brass-deep: #7d6229;
   --color-brass-soft: #c9a961;
+  --color-brass-wash: #f0e7d3;
 
-  /* Secondary accents kept for later phases */
+  /* Supporting accents, used only for meaning: failure and success. */
   --color-burgundy: #6b2b33;
   --color-forest: #34503f;
 
-  /* Hairline borders */
+  /* Hairlines, like the edge of a sheet of paper. */
   --color-rule: #ddd4c2;
+  --color-rule-strong: #c9bda3;
+
+  /* Warm shadows rather than grey ones, so panels read as objects resting on
+     a desk instead of floating in space. */
+  --shadow-card: 0 1px 2px rgb(62 50 30 / 0.04), 0 1px 3px rgb(62 50 30 / 0.05);
+  --shadow-panel: 0 2px 10px rgb(62 50 30 / 0.07);
+  --shadow-popup: 0 10px 32px rgb(62 50 30 / 0.18);
+
+  /* Restrained rounding. Refined, never a pill. */
+  --radius-sm: 0.1875rem;
+  --radius-md: 0.3125rem;
+  --radius-lg: 0.5rem;
 
   --font-display: "EB Garamond", Georgia, "Times New Roman", serif;
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-body {
-  @apply bg-parchment text-ink font-sans antialiased;
+@layer base {
+  /*
+    The application fills the window exactly, and the page inside it does the
+    scrolling.
+
+    Height is chained from html down to #root rather than left to 100vh on the
+    shell alone. A viewport unit is not always the height the browser actually
+    gives you - a horizontal scrollbar, a zoom level or a resized window can
+    leave 100vh and the visible area disagreeing - and when they disagree the
+    shell ends short, the window grows a second scrollbar, and the page picks
+    up a band of dead space under the sidebar. A percentage chain cannot drift
+    like that.
+  */
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-parchment text-ink font-sans antialiased;
+  }
+
+  /* Serif headings throughout, so the typographic voice never has to be
+     re-declared per component. */
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  /* Declared once for every focusable thing in the application. Replacing the
+     browser outline rather than removing it, in brass so it belongs. */
+  :focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 2px;
+  }
+
+  /* Numbers that change in place - timers, totals, ranks - must not jiggle as
+     their digits change width. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /*
+    The eyebrow above a section: small, spaced capitals in brass. Used often
+    enough across the dashboard, history, friends and profile that repeating
+    four utilities every time was noise.
+  */
+  .section-eyebrow {
+    @apply text-xs font-medium uppercase tracking-[0.14em] text-brass;
+  }
+
+  /* A sheet of paper: the standard surface for panels and cards. */
+  .surface-card {
+    @apply rounded-lg border border-rule bg-surface shadow-card;
+  }
+
+  /* Text inputs, selects and textareas share one restrained treatment. */
+  .field-control {
+    @apply w-full rounded-md border border-rule bg-surface-raised px-3 py-2 text-sm
+           text-ink placeholder:text-ink-faint transition-colors
+           hover:border-rule-strong disabled:opacity-60;
+  }
+}
+
+/*
+  Motion is kept small and short throughout: SyntaxTime is a concentration
+  application, and anything that draws the eye is working against it. All of it
+  is dropped for anyone who has asked their system for reduced motion.
+*/
+@keyframes surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-focus-mode-in {
+  animation: surface-in 220ms ease-out;
+}
+
+.animate-surface-in {
+  animation: surface-in 160ms ease-out;
+}
+
+/*
+  The focus clock's two pieces of motion.
+
+  Breathing is six seconds in each direction, far slower than anything the eye
+  follows, so a running session reads as alive without ever asking to be
+  watched. The completion pulse runs exactly once.
+*/
+@keyframes clock-breathe {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+.animate-clock-breathe {
+  animation: clock-breathe 6s ease-in-out infinite alternate;
+}
+
+@keyframes clock-complete {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  55% {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+.animate-clock-complete {
+  animation: clock-complete 900ms ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-focus-mode-in,
+  .animate-surface-in,
+  .animate-clock-breathe,
+  .animate-clock-complete {
+    animation: none;
+  }
+
+  /* Covers everything else too: the timer ring, progress bars and hover
+     colours. Someone who has asked their system for stillness gets it. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

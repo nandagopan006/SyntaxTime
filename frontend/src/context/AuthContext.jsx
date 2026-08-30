@@ -1,13 +1,20 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-import { clearTokens, getAccessToken } from "../services/api";
+import {
+  clearTokens,
+  getAccessToken,
+  setSessionExpiredHandler,
+} from "../services/api";
 import * as authService from "../services/authService";
 
 const AuthContext = createContext(null);
 
 /**
  * Holds the signed-in user for the whole application.
- * Phase 4 will move this state into Redux Toolkit.
+ *
+ * This is the single source of truth for who is signed in. Redux owns the
+ * timer and shared UI flags; authentication stays here, so there is only ever
+ * one answer to "is somebody signed in".
  */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -33,6 +40,15 @@ export function AuthProvider({ children }) {
     }
 
     restoreSession();
+  }, []);
+
+  // If a token expires mid-session and cannot be refreshed, the API layer says
+  // so here. Dropping the user sends the application back to the login screen
+  // instead of leaving a dashboard that silently fails every request.
+  useEffect(() => {
+    setSessionExpiredHandler(() => setUser(null));
+
+    return () => setSessionExpiredHandler(null);
   }, []);
 
   async function login(credentials) {

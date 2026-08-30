@@ -23,3 +23,24 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Tauri build output. The Rust target directory is large and regenerated.
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
+
+# Every local env file, whatever the suffix - but never the examples, which
+# are the only ones meant to be shared.
+.env.*
+!.env.example
+
+# Django, if STATIC_ROOT or MEDIA_ROOT is ever set, or the local SQLite
+# fallback is used instead of Neon.
+staticfiles/
+media/
+*.sqlite3
+
+# Rust and Tauri leftovers outside the target directory.
+*.pdb
+
+# Windows shell leftovers.
+desktop.ini
