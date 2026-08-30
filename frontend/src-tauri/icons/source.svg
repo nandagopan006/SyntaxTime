@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The application's own mark: the focus ring, in brass on parchment.
+       No text, so it needs no font, and no new logo was invented for it. -->
+  <rect width="1024" height="1024" rx="180" fill="#f2ede1"/>
+  <circle cx="512" cy="512" r="330" fill="#fbf8f1" stroke="#ddd4c2" stroke-width="10"/>
+  <circle cx="512" cy="512" r="330" fill="none" stroke="#ebe4d4" stroke-width="52"/>
+  <!-- Three quarters filled, the way a session in progress reads. -->
+  <circle cx="512" cy="512" r="330" fill="none" stroke="#9c7c38" stroke-width="52"
+          stroke-linecap="round" stroke-dasharray="1555 2073"
+          transform="rotate(-90 512 512)"/>
+  <circle cx="512" cy="512" r="196" fill="#1f1c18"/>
+</svg>

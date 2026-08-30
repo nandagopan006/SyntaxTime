@@ -30,3 +30,49 @@ export function getTimerStatus(timer) {
 
   return "Ready";
 }
+
+/**
+ * Returns the timer's phase as a key, for anything that has to look different
+ * per state rather than read differently.
+ *
+ * Separate from getTimerStatus because that returns words for a person. A
+ * colour or an animation cannot be chosen from "Session complete" without
+ * matching on prose, which breaks the moment the wording is improved.
+ */
+export function getTimerPhase(timer) {
+  // A break is its own look throughout, including when it has run out: there
+  // is nothing to celebrate at the end of a rest.
+  if (timer.mode === "break") {
+    return "break";
+  }
+
+  if (timer.isCompleted) {
+    return "complete";
+  }
+  if (timer.isPaused) {
+    return "paused";
+  }
+  if (timer.isRunning) {
+    return "running";
+  }
+
+  return "ready";
+}
+
+/**
+ * Returns how many seconds of the current phase have been spent, for the
+ * clock's progress ring.
+ *
+ * Not the same question as "how much study time has this earned". A break
+ * never adds to elapsedFocusSeconds - that guard is what keeps break minutes
+ * out of every study total - so its progress is read back from the countdown
+ * instead. The ring then means the same thing in both modes: how far through
+ * this phase you are.
+ */
+export function getElapsedSeconds(timer) {
+  if (timer.mode === "break") {
+    return Math.max(timer.durationSeconds - timer.remainingSeconds, 0);
+  }
+
+  return timer.elapsedFocusSeconds;
+}

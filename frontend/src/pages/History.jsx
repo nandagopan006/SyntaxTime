@@ -3,13 +3,23 @@ import { useEffect, useState } from "react";
 import EditSessionForm from "../components/history/EditSessionForm";
 import HistoryEmptyState from "../components/history/HistoryEmptyState";
 import HistoryFilters from "../components/history/HistoryFilters";
+import MonthNavigator from "../components/history/MonthNavigator";
+import MonthSummary from "../components/history/MonthSummary";
 import SessionDetails from "../components/history/SessionDetails";
 import StudySessionList from "../components/history/StudySessionList";
 import Button from "../components/ui/Button";
 import LoadingState from "../components/ui/LoadingState";
 import PageHeader from "../components/ui/PageHeader";
-import { getStudyHistory, getSubjectTotals } from "../services/studyService";
-import { DEFAULT_FILTERS, buildHistoryParams } from "../utils/historyFilters";
+import {
+  getHistorySummary,
+  getStudyHistory,
+  getSubjectTotals,
+} from "../services/studyService";
+import {
+  DEFAULT_FILTERS,
+  buildHistoryParams,
+  formatMonthLabel,
+} from "../utils/historyFilters";
 
 // Long enough that typing "Promises" is one request rather than eight.
 const SEARCH_DEBOUNCE_MS = 300;
@@ -44,6 +54,10 @@ function History() {
   const [savedMessage, setSavedMessage] = useState("");
 
   const [subjects, setSubjects] = useState([]);
+  const [summary, setSummary] = useState(null);
+  // The first year the user has any history in, so the year picker offers
+  // their own range rather than an arbitrary span of decades.
+  const [earliestYear, setEarliestYear] = useState(null);
 
   // The search box updates on every keystroke, but the request waits until the
   // typing stops.
@@ -69,6 +83,7 @@ function History() {
       }
     }
 
+
     loadSubjects();
   }, []);
 
@@ -83,11 +98,15 @@ function History() {
       setSelectedSession(null);
       setIsEditing(false);
 
+      const params = buildHistoryParams(filters, search);
+
       try {
-        const data = await getStudyHistory({
-          ...buildHistoryParams(filters, search),
-          page: 1,
-        });
+        // Both describe the same selection, so they are asked for together and
+        // the totals can never belong to a different month than the list.
+        const [data, monthSummary] = await Promise.all([
+          getStudyHistory({ ...params, page: 1 }),
+          getHistorySummary(params),
+        ]);
 
         if (!isCurrent) {
           return;
@@ -96,6 +115,10 @@ function History() {
         setSessions(data.results);
         setTotalCount(data.count);
         setHasMore(Boolean(data.next));
+        setSummary(monthSummary);
+        if (monthSummary.archive_start_date) {
+          setEarliestYear(Number(monthSummary.archive_start_date.slice(0, 4)));
+        }
         setPage(1);
         setStatus("ready");
       } catch {
@@ -135,13 +158,21 @@ function History() {
     setIsLoadingMore(false);
   }
 
-  /** Applies a change from the filter bar, leaving the other filters alone. */
+  /**
+   * Applies a change from the filter bar or the month navigator.
+   *
+   * Everything the archive shows is derived from this one object, so a change
+   * here reloads the list and the totals together and they cannot disagree.
+   * The page and the open session reset in the effect below, because a page
+   * five of the previous month means nothing in this one.
+   */
   function handleFiltersChange(change) {
     setFilters((current) => ({ ...current, ...change }));
   }
 
+  /** Clears the search and subject, and stays in the month being viewed. */
   function handleResetFilters() {
-    setFilters(DEFAULT_FILTERS);
+    setFilters((current) => ({ ...current, subject: "" }));
     setSearchInput("");
     setSearch("");
   }
@@ -163,8 +194,10 @@ function History() {
     setSavedMessage("Session updated.");
   }
 
-  const hasActiveFilters =
-    search !== "" || filters.subject !== "" || filters.dateRange !== "all";
+  // The month is not a filter: it is where the user is. Only search and
+  // subject make an empty page something to clear rather than something to
+  // navigate away from.
+  const hasActiveFilters = search !== "" || filters.subject !== "";
 
   return (
     <div className="space-y-8">
@@ -182,16 +215,32 @@ function History() {
         onReset={handleResetFilters}
       />
 
+      {/* The month leads: it is how the archive is navigated, and the totals
+          under it say what that month amounted to before any single session
+          is read. */}
+      <div className="space-y-5 border-t border-rule pt-6">
+        <MonthNavigator
+          month={filters}
+          earliestYear={earliestYear}
+          onChange={(month) => handleFiltersChange(month)}
+        />
+
+        <MonthSummary summary={summary} isLoading={status === "loading"} />
+      </div>
+
       <div className="grid gap-8 border-t border-rule pt-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
         <div>
           {status === "loading" && (
-            <LoadingState label="Loading your study history" lines={5} />
+            <LoadingState
+              label={`Loading ${formatMonthLabel(filters)}`}
+              lines={5}
+            />
           )}
 
           {status === "failed" && (
             <div role="alert">
               <p className="text-sm text-burgundy">
-                Unable to load your study history.
+                Unable to load study history for {formatMonthLabel(filters)}.
               </p>
               <Button
                 variant="secondary"
@@ -205,7 +254,9 @@ function History() {
 
           {status === "ready" && sessions.length === 0 && (
             <HistoryEmptyState
+              monthLabel={formatMonthLabel(filters)}
               hasActiveFilters={hasActiveFilters}
+              hasAnyHistory={earliestYear !== null}
               onResetFilters={handleResetFilters}
             />
           )}
@@ -213,7 +264,9 @@ function History() {
           {status === "ready" && sessions.length > 0 && (
             <>
               <p className="mb-4 text-sm text-ink-faint tabular-nums">
-                {totalCount} {totalCount === 1 ? "session" : "sessions"}
+                {sessions.length < totalCount
+                  ? `Showing ${sessions.length} of ${totalCount} sessions`
+                  : `${totalCount} ${totalCount === 1 ? "session" : "sessions"}`}
                 {hasActiveFilters && " found"}
               </p>
 

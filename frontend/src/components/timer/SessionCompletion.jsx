@@ -23,6 +23,7 @@ function SessionCompletion({
   defaultTopic,
   saveState,
   errorMessage,
+  breakMinutes,
   onSave,
   onSkip,
   onStartBreak,
@@ -58,7 +59,20 @@ function SessionCompletion({
             You can add or change the details later from History.
           </p>
 
-          <BreakOffer onStartBreak={onStartBreak} onSkipBreak={onSkipBreak} />
+          {/* Zero means the user turned breaks off while setting the session
+              up. Offering one anyway would be asking a question they have
+              already answered. */}
+          {breakMinutes > 0 ? (
+            <BreakOffer
+              defaultMinutes={breakMinutes}
+              onStartBreak={onStartBreak}
+              onSkipBreak={onSkipBreak}
+            />
+          ) : (
+            <Button variant="primary" className="mt-6" onClick={onSkipBreak}>
+              Done
+            </Button>
+          )}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-8 border-t border-rule pt-6">

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Outlet } from "react-router-dom";
 
 import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
+import { useFocusWindowBridge } from "../../hooks/useFocusWindowBridge";
 import { useTimer } from "../../hooks/useTimer";
 import { useTimerShortcuts } from "../../hooks/useTimerShortcuts";
 import FocusMode from "../timer/FocusMode";
@@ -23,6 +24,9 @@ function AppShell() {
   useTimer();
   // Space pauses and resumes wherever the user happens to be looking.
   useTimerShortcuts();
+  // Beside useTimer on purpose: the window that counts the session is the
+  // window that answers the focus window's buttons. Does nothing in a browser.
+  useFocusWindowBridge();
 
   const dispatch = useDispatch();
   const isFocusPopupOpen = useSelector((state) => state.ui.isFocusPopupOpen);
@@ -35,15 +39,30 @@ function AppShell() {
   }, [dispatch]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    // h-full, not h-screen: the height comes down the chain from html, so the
+    // shell is always exactly as tall as the window really is.
+    <div className="flex h-full overflow-hidden">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
 
-        {/* Capped, because a study page stretched across a wide monitor is
-            harder to read, not easier. */}
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        {/*
+          The one scrolling region in the application, and deliberately
+          `relative`.
+
+          Without a position, this element is not a containing block, so an
+          absolutely positioned descendant with no positioned ancestor of its
+          own resolves against the document instead. Its overflow then escapes
+          this scroller entirely and stretches the page, which puts a second
+          scrollbar on the window and a band of dead space under the whole
+          application. The screen-reader list beside the weekly chart is one
+          such element.
+
+          Capped in width, because a study page stretched across a wide
+          monitor is harder to read, not easier.
+        */}
+        <main className="relative flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="mx-auto w-full max-w-6xl">
             <Outlet />
           </div>

@@ -12,6 +12,11 @@ import LoadingState from "../ui/LoadingState";
 import LeaderboardEntry from "./LeaderboardEntry";
 import LeaderboardPeriodToggle from "./LeaderboardPeriodToggle";
 
+// How many places are shown before the board is folded down. Enough to see
+// the top of the table and where you sit in it, without turning a study page
+// into a scoreboard.
+const VISIBLE_PLACES = 10;
+
 /** Describes the stretch of time being ranked, as "24 Aug - 30 Aug" or "August 2026". */
 function getPeriodLabel(period, startDate, endDate) {
   if (!startDate || !endDate) {
@@ -37,6 +42,9 @@ function getPeriodLabel(period, startDate, endDate) {
 */
 function Leaderboard() {
   const [selectedPeriod, setSelectedPeriod] = useState("weekly");
+  // A board only gets long once somebody has a lot of friends, so it starts
+  // folded and opens on request rather than paging.
+  const [isShowingAll, setIsShowingAll] = useState(false);
   const [board, setBoard] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | failed
   const [errorMessage, setErrorMessage] = useState("");
@@ -79,8 +87,24 @@ function Leaderboard() {
     };
   }, [selectedPeriod, reloadCount]);
 
+  /** Switches period, and folds the board back down for the new one. */
+  function handlePeriodChange(period) {
+    setSelectedPeriod(period);
+    setIsShowingAll(false);
+  }
+
   const entries = board?.entries ?? [];
   const you = entries.find((entry) => entry.is_current_user);
+  // Folding is only about how much is drawn: the ranking itself is the
+  // server's, and every place is still counted in it.
+  const visibleEntries =
+    isShowingAll || entries.length <= VISIBLE_PLACES
+      ? entries
+      : entries.slice(0, VISIBLE_PLACES);
+  const hiddenCount = entries.length - visibleEntries.length;
+  const isYourRankHidden =
+    Boolean(you) && !visibleEntries.some((entry) => entry.is_current_user);
+
   const periodLabel = getPeriodLabel(selectedPeriod, board?.startDate, board?.endDate);
 
   return (
@@ -97,7 +121,7 @@ function Leaderboard() {
 
         <LeaderboardPeriodToggle
           selectedPeriod={selectedPeriod}
-          onSelect={setSelectedPeriod}
+          onSelect={handlePeriodChange}
           disabled={status === "loading"}
         />
       </div>
@@ -136,10 +160,29 @@ function Leaderboard() {
             )}
 
             <ul className="mt-4 space-y-2">
-              {entries.map((entry) => (
+              {visibleEntries.map((entry) => (
                 <LeaderboardEntry key={entry.user_id} entry={entry} />
               ))}
             </ul>
+
+            {/* Somebody outside the top places still gets their own row, so
+                the board never hides the one position they came to see. */}
+            {isYourRankHidden && (
+              <ul className="mt-2 border-t border-rule pt-2">
+                <LeaderboardEntry entry={you} />
+              </ul>
+            )}
+
+            {hiddenCount > 0 && (
+              <Button
+                variant="quiet"
+                size="sm"
+                className="mt-3 -ml-3"
+                onClick={() => setIsShowingAll(true)}
+              >
+                Show all {entries.length}
+              </Button>
+            )}
 
             {entries.length === 1 && (
               <p className="mt-4 text-sm text-ink-muted">

@@ -67,7 +67,7 @@ class AuthenticationTests(FriendsAPITestCase):
 class UserSearchTests(FriendsAPITestCase):
     def search(self, term):
         response = self.client.get(reverse("user-search"), {"search": term})
-        return [row["username"] for row in response.data]
+        return [row["username"] for row in response.data["results"]]
 
     def test_search_finds_a_user_by_part_of_their_name(self):
         self.assertEqual(self.search("abh"), ["abhay"])
@@ -88,33 +88,34 @@ class UserSearchTests(FriendsAPITestCase):
     def test_search_returns_only_a_username_and_an_id(self):
         response = self.client.get(reverse("user-search"), {"search": "abhay"})
         self.assertEqual(
-            set(response.data[0].keys()), {"id", "username", "relationship"}
+            set(response.data["results"][0].keys()),
+            {"id", "username", "relationship"},
         )
 
     def test_a_stranger_is_labelled_as_no_relationship(self):
         response = self.client.get(reverse("user-search"), {"search": "abhay"})
-        self.assertEqual(response.data[0]["relationship"], "none")
+        self.assertEqual(response.data["results"][0]["relationship"], "none")
 
     def test_someone_you_have_asked_is_labelled_request_sent(self):
         self.send_request(self.nandhu, self.abhay)
 
         self.client.force_authenticate(user=self.nandhu)
         response = self.client.get(reverse("user-search"), {"search": "abhay"})
-        self.assertEqual(response.data[0]["relationship"], "request_sent")
+        self.assertEqual(response.data["results"][0]["relationship"], "request_sent")
 
     def test_someone_who_has_asked_you_is_labelled_request_received(self):
         self.send_request(self.abhay, self.nandhu)
 
         self.client.force_authenticate(user=self.nandhu)
         response = self.client.get(reverse("user-search"), {"search": "abhay"})
-        self.assertEqual(response.data[0]["relationship"], "request_received")
+        self.assertEqual(response.data["results"][0]["relationship"], "request_received")
 
     def test_an_accepted_friend_is_labelled_friends(self):
         self.become_friends(self.nandhu, self.abhay)
 
         self.client.force_authenticate(user=self.nandhu)
         response = self.client.get(reverse("user-search"), {"search": "abhay"})
-        self.assertEqual(response.data[0]["relationship"], "friends")
+        self.assertEqual(response.data["results"][0]["relationship"], "friends")
 
     def test_a_rejected_user_can_be_asked_again(self):
         response = self.send_request(self.nandhu, self.abhay)
@@ -122,7 +123,7 @@ class UserSearchTests(FriendsAPITestCase):
 
         self.client.force_authenticate(user=self.nandhu)
         search = self.client.get(reverse("user-search"), {"search": "abhay"})
-        self.assertEqual(search.data[0]["relationship"], "none")
+        self.assertEqual(search.data["results"][0]["relationship"], "none")
 
 
 class SendFriendRequestTests(FriendsAPITestCase):
@@ -213,15 +214,15 @@ class FriendRequestListTests(FriendsAPITestCase):
         self.client.force_authenticate(user=self.nandhu)
         response = self.client.get(reverse("friend-request-list"))
 
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["user"]["username"], "abhay")
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["user"]["username"], "abhay")
 
     def test_an_incoming_request_does_not_appear_for_the_sender(self):
         self.send_request(self.abhay, self.nandhu)
 
         self.client.force_authenticate(user=self.abhay)
         response = self.client.get(reverse("friend-request-list"))
-        self.assertEqual(response.data, [])
+        self.assertEqual(response.data["results"], [])
 
     def test_outgoing_requests_are_listed_separately(self):
         self.send_request(self.nandhu, self.abhay)
@@ -231,21 +232,21 @@ class FriendRequestListTests(FriendsAPITestCase):
             reverse("friend-request-list"), {"direction": "outgoing"}
         )
 
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["user"]["username"], "abhay")
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["user"]["username"], "abhay")
 
     def test_an_unrelated_user_sees_no_requests(self):
         self.send_request(self.nandhu, self.abhay)
 
         self.client.force_authenticate(user=self.rahul)
-        self.assertEqual(self.client.get(reverse("friend-request-list")).data, [])
+        self.assertEqual(self.client.get(reverse("friend-request-list")).data["results"], [])
 
     def test_an_answered_request_stops_being_listed(self):
         response = self.send_request(self.nandhu, self.abhay)
         self.answer_request(self.abhay, response.data["id"], "accepted")
 
         self.client.force_authenticate(user=self.abhay)
-        self.assertEqual(self.client.get(reverse("friend-request-list")).data, [])
+        self.assertEqual(self.client.get(reverse("friend-request-list")).data["results"], [])
 
 
 class AnswerFriendRequestTests(FriendsAPITestCase):
@@ -314,7 +315,7 @@ class FriendListTests(FriendsAPITestCase):
     def friend_names(self, user):
         self.client.force_authenticate(user=user)
         response = self.client.get(reverse("friend-list"))
-        return [row["user"]["username"] for row in response.data]
+        return [row["user"]["username"] for row in response.data["results"]]
 
     def test_an_accepted_friend_appears_for_both_people(self):
         self.become_friends(self.nandhu, self.abhay)
@@ -344,7 +345,7 @@ class FriendListTests(FriendsAPITestCase):
         self.become_friends(self.nandhu, self.abhay)
 
         self.client.force_authenticate(user=self.nandhu)
-        friend = self.client.get(reverse("friend-list")).data[0]
+        friend = self.client.get(reverse("friend-list")).data["results"][0]
 
         self.assertEqual(set(friend["user"].keys()), {"id", "username"})
         self.assertNotIn("email", friend["user"])
@@ -413,3 +414,159 @@ class LeaderboardPreparationTests(FriendsAPITestCase):
 
     def test_a_user_with_no_friends_gets_an_empty_list(self):
         self.assertEqual(get_user_friends(self.nandhu), [])
+
+
+class FriendsPaginationTests(FriendsAPITestCase):
+    """
+    The three Friends lists that grow without limit.
+
+    A user's friends, the requests waiting for them, and the people a search
+    matches are all as long as their life allows, so none of these endpoints
+    may answer with everything it has.
+    """
+
+    def make_users(self, count, prefix="person"):
+        return [
+            User.objects.create_user(
+                username=f"{prefix}{index:03d}", password="StudyFocus2026!"
+            )
+            for index in range(count)
+        ]
+
+    def test_the_friends_list_is_paged(self):
+        for other in self.make_users(25, prefix="friend"):
+            Friendship.objects.create(
+                sender=self.nandhu,
+                receiver=other,
+                status=Friendship.Status.ACCEPTED,
+            )
+
+        response = self.client.get(reverse("friend-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 25)
+        self.assertEqual(len(response.data["results"]), 20)
+        self.assertIsNotNone(response.data["next"])
+
+    def test_the_second_page_holds_the_rest(self):
+        for other in self.make_users(25, prefix="friend"):
+            Friendship.objects.create(
+                sender=self.nandhu,
+                receiver=other,
+                status=Friendship.Status.ACCEPTED,
+            )
+
+        second = self.client.get(reverse("friend-list"), {"page": 2})
+
+        self.assertEqual(len(second.data["results"]), 5)
+        self.assertIsNone(second.data["next"])
+
+    def test_paging_never_repeats_or_skips_a_friend(self):
+        for other in self.make_users(25, prefix="friend"):
+            Friendship.objects.create(
+                sender=self.nandhu,
+                receiver=other,
+                status=Friendship.Status.ACCEPTED,
+            )
+
+        first = self.client.get(reverse("friend-list"), {"page": 1}).data["results"]
+        second = self.client.get(reverse("friend-list"), {"page": 2}).data["results"]
+
+        ids = [row["id"] for row in first] + [row["id"] for row in second]
+        self.assertEqual(len(ids), 25)
+        # A queryset with no ordering pages unpredictably; this is what proves
+        # the ordering is actually there.
+        self.assertEqual(len(set(ids)), 25)
+
+    def test_incoming_requests_are_paged(self):
+        for other in self.make_users(23, prefix="asker"):
+            Friendship.objects.create(
+                sender=other, receiver=self.nandhu, status=Friendship.Status.PENDING
+            )
+
+        response = self.client.get(reverse("friend-request-list"))
+
+        self.assertEqual(response.data["count"], 23)
+        self.assertEqual(len(response.data["results"]), 20)
+
+    def test_sent_requests_are_paged_separately(self):
+        for other in self.make_users(3, prefix="asked"):
+            Friendship.objects.create(
+                sender=self.nandhu, receiver=other, status=Friendship.Status.PENDING
+            )
+        for other in self.make_users(2, prefix="asker"):
+            Friendship.objects.create(
+                sender=other, receiver=self.nandhu, status=Friendship.Status.PENDING
+            )
+
+        outgoing = self.client.get(
+            reverse("friend-request-list"), {"direction": "outgoing"}
+        )
+        incoming = self.client.get(reverse("friend-request-list"))
+
+        self.assertEqual(outgoing.data["count"], 3)
+        self.assertEqual(incoming.data["count"], 2)
+
+    def test_search_results_are_paged(self):
+        self.make_users(24, prefix="seeker")
+
+        response = self.client.get(reverse("user-search"), {"search": "seeker"})
+
+        self.assertEqual(response.data["count"], 24)
+        # Search shows fewer at a time than the other lists.
+        self.assertEqual(len(response.data["results"]), 10)
+        self.assertIsNotNone(response.data["next"])
+
+    def test_a_later_search_page_holds_different_people(self):
+        self.make_users(24, prefix="seeker")
+
+        first = self.client.get(
+            reverse("user-search"), {"search": "seeker", "page": 1}
+        ).data["results"]
+        second = self.client.get(
+            reverse("user-search"), {"search": "seeker", "page": 2}
+        ).data["results"]
+
+        names = {row["username"] for row in first} | {row["username"] for row in second}
+        self.assertEqual(len(names), 20)
+
+    def test_a_search_page_still_reports_relationships(self):
+        others = self.make_users(3, prefix="seeker")
+        Friendship.objects.create(
+            sender=self.nandhu, receiver=others[0], status=Friendship.Status.ACCEPTED
+        )
+
+        response = self.client.get(reverse("user-search"), {"search": "seeker"})
+        relationships = {
+            row["username"]: row["relationship"] for row in response.data["results"]
+        }
+
+        self.assertEqual(relationships[others[0].username], "friends")
+        self.assertEqual(relationships[others[1].username], "none")
+
+    def test_search_never_returns_the_searcher(self):
+        self.make_users(2, prefix="nandhu_like")
+
+        response = self.client.get(reverse("user-search"), {"search": "nandhu"})
+        usernames = [row["username"] for row in response.data["results"]]
+
+        self.assertNotIn(self.nandhu.username, usernames)
+
+    def test_a_blank_search_returns_nobody(self):
+        self.make_users(5, prefix="seeker")
+
+        response = self.client.get(reverse("user-search"), {"search": ""})
+
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+
+    def test_paging_only_ever_shows_your_own_friends(self):
+        # Somebody else's crowded friend list must not leak into yours.
+        for other in self.make_users(25, prefix="theirs"):
+            Friendship.objects.create(
+                sender=self.abhay, receiver=other, status=Friendship.Status.ACCEPTED
+            )
+
+        response = self.client.get(reverse("friend-list"))
+
+        self.assertEqual(response.data["count"], 0)

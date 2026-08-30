@@ -10,12 +10,17 @@ import {
   resetTimer,
   resumeTimer,
 } from "../../features/timer/timerSlice";
-import { getTimerStatus } from "../../features/timer/timerStatus";
+import {
+  getElapsedSeconds,
+  getTimerPhase,
+  getTimerStatus,
+} from "../../features/timer/timerStatus";
 import { closeFocusPopup, enterFocusMode } from "../../features/ui/uiSlice";
 import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../../utils/studySession";
 import Button from "../ui/Button";
-import { formatStudyTime, formatTime } from "../../utils/formatTime";
+import { formatStudyTime } from "../../utils/formatTime";
 import BreakTimer from "./BreakTimer";
+import FocusClock from "./FocusClock";
 import TimerControls from "./TimerControls";
 
 const POPUP_WIDTH = 320;
@@ -183,15 +188,16 @@ function FocusTimerPopup() {
         </div>
       ) : (
         <div className="px-5 pb-5 pt-4">
-          <p className="section-eyebrow text-center">{getTimerStatus(timer)}</p>
-
-          <p
-            role="timer"
-            aria-live="off"
-            className="mt-2 text-center text-5xl leading-none text-ink tabular-nums font-display"
-          >
-            {formatTime(timer.remainingSeconds)}
-          </p>
+          {/* The smallest of the clock's three sizes. Same instrument as Home
+              and focus mode, so the popup is never a second design. */}
+          <FocusClock
+            remainingSeconds={timer.remainingSeconds}
+            durationSeconds={timer.durationSeconds}
+            elapsedSeconds={getElapsedSeconds(timer)}
+            status={getTimerStatus(timer)}
+            phase={getTimerPhase(timer)}
+            size="sm"
+          />
 
           <p className="mt-4 truncate text-center text-sm text-ink">
             {timer.subject || NO_SUBJECT_LABEL}

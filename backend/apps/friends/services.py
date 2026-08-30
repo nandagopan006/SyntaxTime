@@ -73,7 +73,12 @@ def get_accepted_friendships(user):
     return (
         Friendship.objects.filter(status=Friendship.Status.ACCEPTED)
         .filter(Q(sender=user) | Q(receiver=user))
+        # Both sides are needed to name the other person, and fetching them
+        # with the friendship is what keeps a page of friends one query.
         .select_related("sender", "receiver")
+        # Newest connection first, and the id breaks any tie, so paging
+        # through a long friends list never repeats or skips anybody.
+        .order_by("-created_at", "-id")
     )
 
 
@@ -89,18 +94,24 @@ def get_user_friends(user):
     return [friendship.other_user(user) for friendship in friendships]
 
 
-def search_users(user, query, limit=20):
+def search_users(user, query):
     """
     Finds other users by username, for the friend search box.
 
     The signed-in user is left out, and a blank query returns nothing rather
-    than the whole user table.
+    than the whole user table. Returned unsliced and ordered by name: the view
+    pages it, and paging an unordered queryset would repeat and skip rows
+    between pages.
     """
     query = (query or "").strip()
     if not query:
         return User.objects.none()
 
-    return User.objects.filter(username__icontains=query).exclude(pk=user.pk)[:limit]
+    return (
+        User.objects.filter(username__icontains=query)
+        .exclude(pk=user.pk)
+        .order_by("username")
+    )
 
 
 def get_relationship_labels(user, other_users):

@@ -6,6 +6,7 @@ import {
   fetchRecentSessions,
   fetchWeeklyStatistics,
   saveStudySession,
+  selectLiveTodayFocusSeconds,
 } from "../../features/statistics/statisticsSlice";
 import {
   clearTimer,
@@ -19,23 +20,27 @@ import {
   startBreak,
   startTimer,
 } from "../../features/timer/timerSlice";
-import { getTimerStatus } from "../../features/timer/timerStatus";
+import {
+  getElapsedSeconds,
+  getTimerPhase,
+  getTimerStatus,
+} from "../../features/timer/timerStatus";
 import { enterFocusMode } from "../../features/ui/uiSlice";
+import { formatStudyTime } from "../../utils/formatTime";
 import {
   NO_SUBJECT_LABEL,
   NO_TOPIC_LABEL,
-  SUBJECT_MAX_LENGTH,
-  TOPIC_MAX_LENGTH,
   buildSessionPayload,
 } from "../../utils/studySession";
 import Button from "../ui/Button";
 import BreakTimer from "./BreakTimer";
-import DurationSelector from "./DurationSelector";
+import FocusClock from "./FocusClock";
+import FocusSetup from "./FocusSetup";
 import SessionCompletion from "./SessionCompletion";
 import TimerControls from "./TimerControls";
-import TimerDial from "./TimerDial";
 
 const DEFAULT_MINUTES = 25;
+const DEFAULT_BREAK_MINUTES = 5;
 
 
 
@@ -50,6 +55,14 @@ const DEFAULT_MINUTES = 25;
 function FocusTimer() {
   const dispatch = useDispatch();
   const timer = useSelector((state) => state.timer);
+  const liveTodaySeconds = useSelector(selectLiveTodayFocusSeconds);
+
+  // What should happen after this session. Local, because it is a preference
+  // for a session that has not started, and because Redux is wiped the moment
+  // the session saves - which is exactly when the answer is needed. It is
+  // carried across in the completed-session snapshot instead.
+  const [wantsBreak, setWantsBreak] = useState(true);
+  const [breakMinutes, setBreakMinutes] = useState(DEFAULT_BREAK_MINUTES);
 
   // A snapshot of the finished session, taken before anything is saved. The
   // Redux timer is cleared once the save succeeds, and the summary has to stay
@@ -89,6 +102,8 @@ function FocusTimer() {
           startedAt: timer.startedAt,
           subject: timer.subject,
           topic: timer.topic,
+          // Zero means the user asked not to be offered one.
+          breakMinutes: wantsBreak ? breakMinutes : 0,
         }
     );
     // Depending only on these two means this runs when the session ends,
@@ -189,6 +204,7 @@ function FocusTimer() {
         errorMessage={saveError}
         onSave={handleSaveSession}
         onSkip={handleSkipDetails}
+        breakMinutes={completedSession.breakMinutes}
         onStartBreak={handleStartBreak}
         onSkipBreak={handleSkipBreak}
       />
@@ -198,30 +214,76 @@ function FocusTimer() {
   const selectedMinutes = Math.round(timer.durationSeconds / 60);
   const isActive = timer.isRunning || timer.isPaused;
 
+  // A finished session is no longer running, but the completion form is set up
+  // by an effect and so arrives a frame later. Without this the setup form
+  // would flash on screen in between, which reads as the session having been
+  // thrown away.
+  const isFinishing = timer.isCompleted && timer.mode === "focus";
+
+  // Two stages of one feature, not two pages. Before a session the card is a
+  // short form; during one it is a clock and nothing else, because the user is
+  // studying and everything on screen is competing with that.
+  if (!isActive && !isFinishing) {
+    return (
+      <section className="surface-card p-8">
+        <FocusSetup
+          selectedMinutes={selectedMinutes}
+          status={getTimerStatus(timer)}
+          phase={getTimerPhase(timer)}
+          subject={timer.subject}
+          topic={timer.topic}
+          wantsBreak={wantsBreak}
+          breakMinutes={breakMinutes}
+          canStart={timer.durationSeconds > 0}
+          onSelectDuration={(minutes) => dispatch(setDuration(minutes * 60))}
+          onSubjectChange={(value) => dispatch(setSubject(value))}
+          onTopicChange={(value) => dispatch(setTopic(value))}
+          onWantsBreakChange={setWantsBreak}
+          onBreakMinutesChange={setBreakMinutes}
+          onStart={() =>
+            dispatch(
+              startTimer({ startedAt: new Date().toISOString(), now: Date.now() })
+            )
+          }
+        />
+      </section>
+    );
+  }
+
   return (
-    <section className="surface-card p-8">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="section-eyebrow font-sans">Focus session</h2>
-
-        {isActive && (
-          <p className="text-sm text-ink-muted">
-            {timer.subject || NO_SUBJECT_LABEL}
-            <span className="text-ink-faint"> · {timer.topic || NO_TOPIC_LABEL}</span>
-          </p>
-        )}
-      </div>
-
-      {/* The countdown leads. Everything needed to set one up sits below it,
-          so the first thing on the page is always the study itself. */}
-      <div className="mt-6">
-        <TimerDial
+    <section className="surface-card p-8 animate-surface-in">
+      <div className="mt-2">
+        <FocusClock
           remainingSeconds={timer.remainingSeconds}
           durationSeconds={timer.durationSeconds}
+          elapsedSeconds={getElapsedSeconds(timer)}
           status={getTimerStatus(timer)}
+          phase={getTimerPhase(timer)}
         />
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+      {/* What is being studied, directly under the clock and deliberately
+          quiet, so the eye falls back onto the time. */}
+      <div className="mt-5 text-center">
+        <p className="text-base text-ink break-words font-display">
+          {timer.subject || NO_SUBJECT_LABEL}
+        </p>
+        <p className="mt-0.5 text-sm text-ink-faint break-words">
+          {timer.topic || NO_TOPIC_LABEL}
+        </p>
+      </div>
+
+      {/* The one number worth knowing besides the countdown: the same live
+          total the popup shows, so the two can never disagree. */}
+      <p className="mt-5 text-center text-sm text-ink-muted">
+        Today{" "}
+        <span className="text-ink tabular-nums">
+          {formatStudyTime(liveTodaySeconds)}
+        </span>
+      </p>
+
+      <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+        {isActive && (
         <TimerControls
           isRunning={timer.isRunning}
           isPaused={timer.isPaused}
@@ -234,9 +296,9 @@ function FocusTimer() {
           onReset={() => dispatch(resetTimer())}
           onFinish={() => dispatch(finishTimer(Date.now()))}
         />
+        )}
 
-        {/* Offered only once a session exists, because focus mode has nothing
-            to show before then. It changes the view and never the timer. */}
+        {/* Changes the view and never the timer. */}
         {isActive && (
           <Button variant="quiet" onClick={() => dispatch(enterFocusMode())}>
             <Maximize2 size={16} aria-hidden="true" />
@@ -248,61 +310,12 @@ function FocusTimer() {
       {/* Mentioned once, quietly, where the controls are. A shortcut nobody
           knows about is not a shortcut. */}
       {isActive && (
-        <p className="mt-4 text-center text-xs text-ink-faint">
-          Press <kbd className="rounded-sm border border-rule bg-surface-sunken px-1.5 py-0.5 font-sans">Space</kbd> to
-          {" "}
-          {timer.isRunning ? "pause" : "resume"}
-        </p>
+      <p className="mt-4 text-center text-xs text-ink-faint">
+        Press <kbd className="rounded-sm border border-rule bg-surface-sunken px-1.5 py-0.5 font-sans">Space</kbd> to
+        {" "}
+        {timer.isRunning ? "pause" : "resume"}
+      </p>
       )}
-
-      <div className="mt-8 space-y-5 border-t border-rule pt-6">
-        {/* The length is fixed once a session starts, so the picker would only
-            be a disabled control taking up room the timer wants. */}
-        {!isActive && (
-          <DurationSelector
-            selectedMinutes={selectedMinutes}
-            onSelect={(minutes) => dispatch(setDuration(minutes * 60))}
-          />
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label
-              className="block text-sm font-medium text-ink-muted"
-              htmlFor="subject"
-            >
-              Subject <span className="text-ink-faint">(optional)</span>
-            </label>
-            <input
-              id="subject"
-              type="text"
-              value={timer.subject}
-              onChange={(event) => dispatch(setSubject(event.target.value))}
-              placeholder="JavaScript"
-              maxLength={SUBJECT_MAX_LENGTH}
-              className="field-control mt-1.5"
-            />
-          </div>
-
-          <div>
-            <label
-              className="block text-sm font-medium text-ink-muted"
-              htmlFor="topic"
-            >
-              Topic <span className="text-ink-faint">(optional)</span>
-            </label>
-            <input
-              id="topic"
-              type="text"
-              value={timer.topic}
-              onChange={(event) => dispatch(setTopic(event.target.value))}
-              placeholder="Promises"
-              maxLength={TOPIC_MAX_LENGTH}
-              className="field-control mt-1.5"
-            />
-          </div>
-        </div>
-      </div>
     </section>
   );
 }

@@ -1,63 +1,83 @@
 import { toApiDate } from "./formatDate";
 
 /*
-  Turning the History page's filters into API query parameters.
+  Turning the History page's month and filters into API query parameters.
 
-  Kept here rather than inside the page so the buttons and the request agree on
-  what "This week" means, and so the date arithmetic is in one readable place.
+  History is an archive rather than a feed, so the month is the main way
+  through it: a year of study is twelve short pages instead of one endless
+  scroll. Kept here rather than inside the page so the navigator and the
+  request always agree on which days a month covers.
 */
 
-// The order these appear in is the order the buttons are drawn.
-export const DATE_RANGES = [
-  { value: "all", label: "All time" },
-  { value: "today", label: "Today" },
-  { value: "yesterday", label: "Yesterday" },
-  { value: "week", label: "This week" },
-  { value: "month", label: "This month" },
-  { value: "custom", label: "Custom" },
+export const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
+
+/** The month containing today, as the archive's starting point. */
+export function getCurrentMonth() {
+  const today = new Date();
+
+  return { year: today.getFullYear(), month: today.getMonth() + 1 };
+}
 
 export const DEFAULT_FILTERS = {
   subject: "",
-  dateRange: "all",
-  startDate: "",
-  endDate: "",
+  ...getCurrentMonth(),
 };
 
-/** Returns the first and last day a named range covers, as Date objects. */
-function getRangeDates(dateRange) {
-  const today = new Date();
+/** Reads a month as "August 2026". */
+export function formatMonthLabel({ year, month }) {
+  return `${MONTH_NAMES[month - 1]} ${year}`;
+}
 
-  if (dateRange === "today") {
-    return { from: today, to: today };
-  }
+/** The month before this one, rolling back into December of the previous year. */
+export function getPreviousMonth({ year, month }) {
+  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+}
 
-  if (dateRange === "yesterday") {
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    return { from: yesterday, to: yesterday };
-  }
+/** The month after this one, rolling forward into January of the next year. */
+export function getNextMonth({ year, month }) {
+  return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
+}
 
-  if (dateRange === "week") {
-    // getDay() calls Sunday 0, but a study week starts on Monday.
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    return { from: monday, to: today };
-  }
+/** True when the month is this one or a later one. Nothing has been studied yet in those. */
+export function isCurrentOrFutureMonth({ year, month }) {
+  const current = getCurrentMonth();
 
-  if (dateRange === "month") {
-    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { from: firstOfMonth, to: today };
-  }
+  return year > current.year || (year === current.year && month >= current.month);
+}
 
-  return null;
+/**
+ * The first and last calendar day of a month.
+ *
+ * Day 0 of the following month is the last day of this one, which gets the
+ * length of every month right without a table of them.
+ */
+export function getMonthRange({ year, month }) {
+  return {
+    from: new Date(year, month - 1, 1),
+    to: new Date(year, month, 0),
+  };
 }
 
 /**
  * Builds the query parameters for one history request.
  *
  * Empty filters are left out entirely rather than sent as blank values, so the
- * backend only applies the filters the user actually chose.
+ * backend only applies the filters the user actually chose. The same
+ * parameters are used for the summary, so the totals always describe exactly
+ * the sessions being listed.
  */
 export function buildHistoryParams(filters, search) {
   const params = {};
@@ -70,23 +90,27 @@ export function buildHistoryParams(filters, search) {
     params.subject = filters.subject;
   }
 
-  if (filters.dateRange === "custom") {
-    // Either end of a custom range can be left blank, which reads naturally as
-    // "everything before" or "everything since".
-    if (filters.startDate) {
-      params.start_date = filters.startDate;
-    }
-    if (filters.endDate) {
-      params.end_date = filters.endDate;
-    }
-    return params;
-  }
-
-  const range = getRangeDates(filters.dateRange);
-  if (range) {
-    params.start_date = toApiDate(range.from);
-    params.end_date = toApiDate(range.to);
-  }
+  const range = getMonthRange(filters);
+  params.start_date = toApiDate(range.from);
+  params.end_date = toApiDate(range.to);
 
   return params;
+}
+
+/**
+ * The years worth offering, newest first.
+ *
+ * Built from the user's own history rather than a fixed span, so somebody who
+ * started in March is not asked to choose between decades.
+ */
+export function getSelectableYears(earliestYear) {
+  const currentYear = getCurrentMonth().year;
+  const firstYear = Math.min(earliestYear || currentYear, currentYear);
+  const years = [];
+
+  for (let year = currentYear; year >= firstYear; year -= 1) {
+    years.push(year);
+  }
+
+  return years;
 }

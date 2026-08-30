@@ -66,14 +66,17 @@ function TimerControls({
     );
   }
 
+  // Three buttons at the same weight make the user read all three. Pausing is
+  // the obvious action, finishing is deliberate, and resetting throws the
+  // session away - so it is the quietest of them.
   return (
     <>
       {pauseOrResume}
-      <Button variant="secondary" size={size} onClick={onReset}>
-        Reset
-      </Button>
       <Button variant="secondary" size={size} onClick={onFinish}>
         Finish session
+      </Button>
+      <Button variant="quiet" size={size} onClick={onReset}>
+        Reset
       </Button>
     </>
   );

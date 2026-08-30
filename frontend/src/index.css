@@ -54,6 +54,24 @@
 }
 
 @layer base {
+  /*
+    The application fills the window exactly, and the page inside it does the
+    scrolling.
+
+    Height is chained from html down to #root rather than left to 100vh on the
+    shell alone. A viewport unit is not always the height the browser actually
+    gives you - a horizontal scrollbar, a zoom level or a resized window can
+    leave 100vh and the visible area disagreeing - and when they disagree the
+    shell ends short, the window grows a second scrollbar, and the page picks
+    up a band of dead space under the sidebar. A percentage chain cannot drift
+    like that.
+  */
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   body {
     @apply bg-parchment text-ink font-sans antialiased;
   }
@@ -127,9 +145,49 @@
   animation: surface-in 160ms ease-out;
 }
 
+/*
+  The focus clock's two pieces of motion.
+
+  Breathing is six seconds in each direction, far slower than anything the eye
+  follows, so a running session reads as alive without ever asking to be
+  watched. The completion pulse runs exactly once.
+*/
+@keyframes clock-breathe {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+.animate-clock-breathe {
+  animation: clock-breathe 6s ease-in-out infinite alternate;
+}
+
+@keyframes clock-complete {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  55% {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+.animate-clock-complete {
+  animation: clock-complete 900ms ease-out 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-focus-mode-in,
-  .animate-surface-in {
+  .animate-surface-in,
+  .animate-clock-breathe,
+  .animate-clock-complete {
     animation: none;
   }
 

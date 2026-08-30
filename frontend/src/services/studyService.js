@@ -49,6 +49,26 @@ export async function getRecentSessions(limit = 5) {
   return Array.isArray(response.data) ? response.data : [];
 }
 
+/**
+ * Returns the totals for whatever slice of history the parameters describe:
+ * focused minutes, how many sessions, and how many separate study days.
+ *
+ * Takes the same parameters as getStudyHistory, so the figures always cover
+ * the whole selection rather than the page of it currently on screen.
+ */
+export async function getHistorySummary(params) {
+  const response = await api.get("/study/history/summary/", { params });
+  const data = response.data ?? {};
+
+  return {
+    focused_minutes: data.focused_minutes ?? 0,
+    sessions_count: data.sessions_count ?? 0,
+    study_days: data.study_days ?? 0,
+    // The whole archive, not this selection: how far back the record goes.
+    archive_start_date: data.archive_start_date ?? null,
+  };
+}
+
 /** Sets today's study target, in minutes. */
 export async function updateTodayGoal(targetMinutes) {
   const response = await api.put("/goals/today/", {

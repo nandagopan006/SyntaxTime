@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth.models import User
 from django.urls import reverse
@@ -1039,3 +1039,159 @@ class ProfilePrivacyTests(StudyAPITestCase):
                 "subjects",
             },
         )
+
+
+class HistorySummaryTests(StudyAPITestCase):
+    """
+    The figures above the archive.
+
+    They have to describe exactly the sessions listed below them, and they have
+    to cover the whole month rather than the page of it that has been fetched.
+    """
+
+    def summary(self, **params):
+        response = self.client.get(reverse("history-summary"), params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.data
+
+    def august(self, day, minutes, subject="", notes=""):
+        """One completed session on a given day of August."""
+        started = timezone.make_aware(datetime(2026, 8, day, 20, 0))
+        return StudySession.objects.create(
+            user=self.nandhu,
+            planned_minutes=minutes,
+            focused_minutes=minutes,
+            subject=subject,
+            notes=notes,
+            started_at=started,
+            completed_at=started + timedelta(minutes=minutes),
+            status=StudySession.Status.COMPLETED,
+        )
+
+    def test_an_empty_month_totals_zero(self):
+        data = self.summary(start_date="2026-08-01", end_date="2026-08-31")
+
+        self.assertEqual(data["focused_minutes"], 0)
+        self.assertEqual(data["sessions_count"], 0)
+        self.assertEqual(data["study_days"], 0)
+
+    def test_focused_minutes_are_added_up(self):
+        self.august(29, 30)
+        self.august(29, 40)
+        self.august(28, 50)
+
+        data = self.summary(start_date="2026-08-01", end_date="2026-08-31")
+        self.assertEqual(data["focused_minutes"], 120)
+
+    def test_sessions_are_counted(self):
+        self.august(29, 30)
+        self.august(29, 40)
+        self.august(28, 50)
+
+        self.assertEqual(
+            self.summary(start_date="2026-08-01", end_date="2026-08-31")[
+                "sessions_count"
+            ],
+            3,
+        )
+
+    def test_study_days_count_dates_not_sessions(self):
+        # Three sessions in one evening are one study day.
+        self.august(29, 30)
+        self.august(29, 40)
+        self.august(29, 20)
+        self.august(28, 50)
+
+        data = self.summary(start_date="2026-08-01", end_date="2026-08-31")
+        self.assertEqual(data["sessions_count"], 4)
+        self.assertEqual(data["study_days"], 2)
+
+    def test_another_month_is_not_included(self):
+        self.august(29, 60)
+
+        july = self.summary(start_date="2026-07-01", end_date="2026-07-31")
+        self.assertEqual(july["focused_minutes"], 0)
+        self.assertEqual(july["sessions_count"], 0)
+
+    def test_a_cancelled_session_is_left_out(self):
+        self.august(29, 60)
+        cancelled = self.august(28, 30)
+        cancelled.status = StudySession.Status.CANCELLED
+        cancelled.save()
+
+        data = self.summary(start_date="2026-08-01", end_date="2026-08-31")
+        self.assertEqual(data["focused_minutes"], 60)
+        self.assertEqual(data["sessions_count"], 1)
+        self.assertEqual(data["study_days"], 1)
+
+    def test_the_subject_filter_narrows_the_totals(self):
+        self.august(29, 60, subject="Python")
+        self.august(28, 30, subject="JavaScript")
+
+        data = self.summary(
+            start_date="2026-08-01", end_date="2026-08-31", subject="Python"
+        )
+        self.assertEqual(data["focused_minutes"], 60)
+        self.assertEqual(data["sessions_count"], 1)
+
+    def test_the_search_narrows_the_totals(self):
+        self.august(29, 60, notes="Learned about JWT refresh")
+        self.august(28, 30, notes="Promise.all")
+
+        data = self.summary(
+            start_date="2026-08-01", end_date="2026-08-31", search="JWT"
+        )
+        self.assertEqual(data["sessions_count"], 1)
+        self.assertEqual(data["focused_minutes"], 60)
+
+    def test_the_totals_match_the_list_they_sit_above(self):
+        self.august(29, 30)
+        self.august(29, 40)
+        self.august(28, 50)
+
+        params = {"start_date": "2026-08-01", "end_date": "2026-08-31"}
+        listed = self.client.get(reverse("session-history"), params).data
+        data = self.summary(**params)
+
+        self.assertEqual(data["sessions_count"], listed["count"])
+
+    def test_another_users_sessions_are_never_counted(self):
+        started = timezone.make_aware(datetime(2026, 8, 29, 20, 0))
+        StudySession.objects.create(
+            user=self.abhay,
+            planned_minutes=90,
+            focused_minutes=90,
+            started_at=started,
+            completed_at=started + timedelta(minutes=90),
+            status=StudySession.Status.COMPLETED,
+        )
+        self.august(29, 30)
+
+        data = self.summary(start_date="2026-08-01", end_date="2026-08-31")
+        self.assertEqual(data["focused_minutes"], 30)
+        self.assertEqual(data["sessions_count"], 1)
+
+    def test_the_archive_start_date_is_the_first_session_ever(self):
+        self.august(29, 30)
+        june = timezone.make_aware(datetime(2026, 6, 3, 9, 0))
+        StudySession.objects.create(
+            user=self.nandhu,
+            planned_minutes=25,
+            focused_minutes=25,
+            started_at=june,
+            completed_at=june + timedelta(minutes=25),
+            status=StudySession.Status.COMPLETED,
+        )
+
+        # Asked for August, but the year picker needs the whole span.
+        data = self.summary(start_date="2026-08-01", end_date="2026-08-31")
+        self.assertEqual(str(data["archive_start_date"]), "2026-06-03")
+
+    def test_the_archive_start_date_is_empty_for_a_new_user(self):
+        data = self.summary(start_date="2026-08-01", end_date="2026-08-31")
+        self.assertIsNone(data["archive_start_date"])
+
+    def test_the_summary_needs_a_signed_in_user(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse("history-summary"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

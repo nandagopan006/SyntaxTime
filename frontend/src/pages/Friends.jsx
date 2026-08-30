@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import FriendRequests from "../components/friends/FriendRequests";
 import FriendsList from "../components/friends/FriendsList";
+import LoadMore from "../components/friends/LoadMore";
 import UserSearch from "../components/friends/UserSearch";
 import Leaderboard from "../components/leaderboard/Leaderboard";
 import PageHeader from "../components/ui/PageHeader";
+import { usePaginatedList } from "../hooks/usePaginatedList";
 import { getErrorMessage } from "../services/api";
 import {
   acceptFriendRequest,
@@ -27,22 +29,14 @@ const SEARCH_DEBOUNCE_MS = 300;
   Everything here is server data that no other page needs, so it lives in local
   state rather than Redux. Redux stays responsible for what really is shared:
   the running timer, the signed-in user, and global UI flags.
+
+  All four lists arrive a page at a time. Somebody with two hundred friends
+  should get the same page as somebody with two, so nothing here ever asks for
+  a whole list.
 */
 function Friends() {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState([]);
-  const [searchStatus, setSearchStatus] = useState("idle"); // idle | searching | ready | failed
-  const [searchError, setSearchError] = useState("");
-
-  const [incoming, setIncoming] = useState([]);
-  const [sent, setSent] = useState([]);
-  const [requestsStatus, setRequestsStatus] = useState("loading");
-  const [requestsError, setRequestsError] = useState("");
-
-  const [friends, setFriends] = useState([]);
-  const [friendsStatus, setFriendsStatus] = useState("loading");
-  const [friendsError, setFriendsError] = useState("");
 
   // Which single button is mid-action, so only that one is disabled and no
   // action can be fired twice.
@@ -55,44 +49,39 @@ function Friends() {
   const [actionError, setActionError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
 
-  /** Loads the requests waiting in both directions. */
-  async function loadRequests() {
-    setRequestsStatus("loading");
+  // useCallback on each fetcher, or the hook would treat every render as a
+  // new source and reload endlessly.
+  const searchResults = usePaginatedList({
+    fetchPage: useCallback((page) => searchUsers(search, page), [search]),
+    failureMessage: "Unable to search for users.",
+    // Nothing is loading until something is typed.
+    initialStatus: "idle",
+  });
 
-    try {
-      const [incomingRequests, sentRequests] = await Promise.all([
-        getIncomingRequests(),
-        getSentRequests(),
-      ]);
-      setIncoming(incomingRequests);
-      setSent(sentRequests);
-      setRequestsStatus("ready");
-    } catch (error) {
-      setRequestsError(getErrorMessage(error, "Unable to load friend requests."));
-      setRequestsStatus("failed");
-    }
-  }
+  const incoming = usePaginatedList({
+    fetchPage: useCallback((page) => getIncomingRequests(page), []),
+    failureMessage: "Unable to load friend requests.",
+  });
 
-  /** Loads the accepted friends. */
-  async function loadFriends() {
-    setFriendsStatus("loading");
+  const sent = usePaginatedList({
+    fetchPage: useCallback((page) => getSentRequests(page), []),
+    failureMessage: "Unable to load friend requests.",
+  });
 
-    try {
-      setFriends(await getFriends());
-      setFriendsStatus("ready");
-    } catch (error) {
-      setFriendsError(getErrorMessage(error, "Unable to load your friends."));
-      setFriendsStatus("failed");
-    }
-  }
+  const friends = usePaginatedList({
+    fetchPage: useCallback((page) => getFriends(page), []),
+    failureMessage: "Unable to load your friends.",
+  });
+
+  const { load: loadIncoming } = incoming;
+  const { load: loadSent } = sent;
+  const { load: loadFriends } = friends;
 
   useEffect(() => {
-    loadRequests();
+    loadIncoming();
+    loadSent();
     loadFriends();
-    // Runs once, when the page opens. The two loaders are redefined on every
-    // render, so listing them here would re-run this effect forever.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadIncoming, loadSent, loadFriends]);
 
   // The box updates as you type; the request waits until you stop.
   useEffect(() => {
@@ -100,41 +89,18 @@ function Friends() {
     return () => clearTimeout(timeoutId);
   }, [query]);
 
+  const { load: loadSearch, reset: resetSearch } = searchResults;
+
+  // A new search always starts from the first page: page three of the previous
+  // query means nothing for this one.
   useEffect(() => {
     if (!search) {
-      setResults([]);
-      setSearchStatus("idle");
+      resetSearch();
       return;
     }
 
-    // Stops a slow earlier search from overwriting the results of a newer one.
-    let isCurrent = true;
-
-    async function runSearch() {
-      setSearchStatus("searching");
-
-      try {
-        const users = await searchUsers(search);
-        if (!isCurrent) {
-          return;
-        }
-        setResults(users);
-        setSearchStatus("ready");
-      } catch (error) {
-        if (!isCurrent) {
-          return;
-        }
-        setSearchError(getErrorMessage(error, "Unable to search for users."));
-        setSearchStatus("failed");
-      }
-    }
-
-    runSearch();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [search]);
+    loadSearch();
+  }, [search, loadSearch, resetSearch]);
 
   /**
    * Reloads everything an action could have changed.
@@ -143,17 +109,15 @@ function Friends() {
    * friends list, and changes what their search result should offer. Asking
    * the server again is simpler than patching three lists by hand, and it
    * keeps the page agreeing with the database rather than with our guesses.
+   *
+   * Only these lists: nothing on Home, History or Profile depends on who your
+   * friends are, apart from the leaderboard, which reloads itself.
    */
   async function refreshRelationships() {
-    await Promise.all([loadRequests(), loadFriends()]);
+    await Promise.all([loadIncoming(), loadSent(), loadFriends()]);
 
     if (search) {
-      try {
-        setResults(await searchUsers(search));
-      } catch {
-        // The lists above are refreshed and correct; a stale search row is a
-        // small enough problem to leave until the next keystroke.
-      }
+      await loadSearch();
     }
   }
 
@@ -249,43 +213,84 @@ function Friends() {
         </p>
       )}
 
-      {/* First on the page, because comparing progress is what brings someone
-          back to Friends. Searching and answering requests are occasional. */}
-      <div>
-        <Leaderboard />
-      </div>
+      {/* Managing who you study with comes first. The leaderboard is what
+          brings someone back, but it is not what they came here to do, and
+          scrolling past it to answer a request would be the wrong way round. */}
+      <div className="grid gap-8 lg:grid-cols-2 items-start">
+        <div>
+          <UserSearch
+            query={query}
+            onQueryChange={setQuery}
+            results={searchResults.items}
+            status={searchResults.status}
+            errorMessage={searchResults.errorMessage}
+            pendingUserId={sendingUserId}
+            onSendRequest={handleSendRequest}
+          />
 
-      <div className="grid gap-8 border-t border-rule pt-6 lg:grid-cols-2 items-start">
-        <UserSearch
-          query={query}
-          onQueryChange={setQuery}
-          results={results}
-          status={searchStatus}
-          errorMessage={searchError}
-          pendingUserId={sendingUserId}
-          onSendRequest={handleSendRequest}
-        />
+          <LoadMore
+            shown={searchResults.items.length}
+            total={searchResults.count}
+            hasMore={searchResults.hasMore}
+            isLoading={searchResults.isLoadingMore}
+            label="More results"
+            onLoadMore={searchResults.loadMore}
+          />
+        </div>
 
-        <FriendRequests
-          incoming={incoming}
-          sent={sent}
-          status={requestsStatus}
-          errorMessage={requestsError}
-          busyRequest={busyRequest}
-          onAccept={handleAcceptRequest}
-          onReject={handleRejectRequest}
-        />
+        <div>
+          <FriendRequests
+            incoming={incoming.items}
+            sent={sent.items}
+            status={incoming.status}
+            errorMessage={incoming.errorMessage}
+            busyRequest={busyRequest}
+            onAccept={handleAcceptRequest}
+            onReject={handleRejectRequest}
+          />
+
+          <LoadMore
+            shown={incoming.items.length}
+            total={incoming.count}
+            hasMore={incoming.hasMore}
+            isLoading={incoming.isLoadingMore}
+            label="More requests"
+            onLoadMore={incoming.loadMore}
+          />
+
+          <LoadMore
+            shown={sent.items.length}
+            total={sent.count}
+            hasMore={sent.hasMore}
+            isLoading={sent.isLoadingMore}
+            label="More sent requests"
+            onLoadMore={sent.loadMore}
+          />
+        </div>
       </div>
 
       <div className="border-t border-rule pt-6">
         <FriendsList
-          friends={friends}
-          status={friendsStatus}
-          errorMessage={friendsError}
+          friends={friends.items}
+          status={friends.status}
+          errorMessage={friends.errorMessage}
           removingFriendId={removingFriendId}
           onRemove={handleRemoveFriend}
           onRetry={loadFriends}
         />
+
+        <LoadMore
+          shown={friends.items.length}
+          total={friends.count}
+          hasMore={friends.hasMore}
+          isLoading={friends.isLoadingMore}
+          label="More friends"
+          onLoadMore={friends.loadMore}
+        />
+      </div>
+
+      <div className="border-t border-rule pt-6">
+        <Leaderboard />
       </div>
     </div>
   );

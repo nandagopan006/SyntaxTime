@@ -10,12 +10,17 @@ import {
   resetTimer,
   resumeTimer,
 } from "../../features/timer/timerSlice";
-import { getTimerStatus } from "../../features/timer/timerStatus";
+import {
+  getElapsedSeconds,
+  getTimerPhase,
+  getTimerStatus,
+} from "../../features/timer/timerStatus";
 import { exitFocusMode } from "../../features/ui/uiSlice";
 import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../../utils/studySession";
 import Button from "../ui/Button";
-import { formatStudyTime, formatTime } from "../../utils/formatTime";
+import { formatStudyTime } from "../../utils/formatTime";
 import BreakTimer from "./BreakTimer";
+import FocusClock from "./FocusClock";
 import TimerControls from "./TimerControls";
 
 
@@ -109,24 +114,24 @@ function FocusMode() {
           <BreakTimer />
         ) : (
           <div className="w-full max-w-2xl">
-            <p className="text-2xl text-ink break-words sm:text-3xl font-display">
+            {/* The same clock as everywhere else, at the largest of its three
+                sizes. In focus mode the time is the only thing worth looking
+                at, so nothing is added around it. */}
+            <FocusClock
+              remainingSeconds={timer.remainingSeconds}
+              durationSeconds={timer.durationSeconds}
+              elapsedSeconds={getElapsedSeconds(timer)}
+              status={getTimerStatus(timer)}
+              phase={getTimerPhase(timer)}
+              size="lg"
+            />
+
+            <p className="mt-8 text-xl text-ink break-words sm:text-2xl font-display">
               {timer.subject || NO_SUBJECT_LABEL}
             </p>
-            <p className="mt-1.5 text-base text-ink-muted break-words">
+            <p className="mt-1 text-sm text-ink-muted break-words">
               {timer.topic || NO_TOPIC_LABEL}
             </p>
-
-            {/* Far larger than anywhere else in the application. In focus mode
-                the time is the only thing worth looking at. */}
-            <p
-              className="mt-10 text-[clamp(4rem,16vmin,8rem)] leading-none text-ink tabular-nums font-display"
-              role="timer"
-              aria-live="off"
-            >
-              {formatTime(timer.remainingSeconds)}
-            </p>
-
-            <p className="mt-5 section-eyebrow">{getTimerStatus(timer)}</p>
 
             <div className="mt-12 flex flex-wrap justify-center gap-3">
               {timer.isCompleted ? (

@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -30,6 +31,27 @@ routing and extra decorators, which is more machinery than these views need.
 """
 
 
+class FriendsPagination(PageNumberPagination):
+    """
+    Pages the three lists on the Friends page that grow without limit.
+
+    Friends, pending requests and search results are all as long as the user's
+    life allows, and a page that renders every one of them stops being usable
+    long before the database minds. Set on the views rather than in settings,
+    so the rest of the API keeps returning plain arrays.
+    """
+
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class SearchPagination(FriendsPagination):
+    """Search shows fewer at a time: nobody reads past the first handful."""
+
+    page_size = 10
+
+
 class UserSearchView(APIView):
     """
     Finds other SyntaxTime users by username.
@@ -39,21 +61,28 @@ class UserSearchView(APIView):
     """
 
     def get(self, request):
-        users = list(search_users(request.user, request.query_params.get("search")))
+        matches = search_users(request.user, request.query_params.get("search"))
+
+        paginator = SearchPagination()
+        # Paginated by hand rather than with a ListAPIView, because the
+        # relationship lookup below needs the page itself: working it out for
+        # the whole match set would read rows nobody is going to see.
+        page = paginator.paginate_queryset(matches, request, view=self)
 
         serializer = UserSearchResultSerializer(
-            users,
+            page,
             many=True,
             # Looked up once for the whole page of results, not once per row.
-            context={"relationships": get_relationship_labels(request.user, users)},
+            context={"relationships": get_relationship_labels(request.user, page)},
         )
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class FriendListView(generics.ListAPIView):
     """The people who have accepted a friendship with the signed-in user."""
 
     serializer_class = FriendSerializer
+    pagination_class = FriendsPagination
 
     def get_queryset(self):
         return get_accepted_friendships(self.request.user)
@@ -88,11 +117,15 @@ class FriendRequestListCreateView(generics.ListCreateAPIView):
     """
 
     serializer_class = FriendRequestSerializer
+    pagination_class = FriendsPagination
 
     def get_queryset(self):
-        pending = Friendship.objects.filter(
-            status=Friendship.Status.PENDING
-        ).select_related("sender", "receiver")
+        pending = (
+            Friendship.objects.filter(status=Friendship.Status.PENDING)
+            .select_related("sender", "receiver")
+            # Newest first, and the id breaks any tie, so paging is stable.
+            .order_by("-created_at", "-id")
+        )
 
         if self.request.query_params.get("direction") == "outgoing":
             return pending.filter(sender=self.request.user)

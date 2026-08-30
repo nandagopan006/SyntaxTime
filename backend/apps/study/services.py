@@ -3,7 +3,7 @@
 from calendar import monthrange
 from datetime import timedelta
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Min, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
@@ -196,6 +196,60 @@ def get_profile_statistics(user):
         "total_study_days": len(study_dates),
         "most_studied_subject": get_most_studied_subject(subjects),
         "subjects": subjects,
+    }
+
+
+def get_archive_start_date(user):
+    """
+    The local date of the user's first completed session, or None.
+
+    History's year picker offers the years this user actually studied in
+    rather than an arbitrary span of decades, and this is the only thing it
+    needs to know to work that out.
+    """
+    first = (
+        get_completed_sessions(user)
+        .annotate(day=TruncDate("started_at"))
+        .aggregate(first_day=Min("day"))
+    )
+
+    return first["first_day"]
+
+
+def summarise_sessions(sessions):
+    """
+    Totals a set of completed sessions: focused time, how many, and how many
+    separate days they fall on.
+
+    Takes an already-filtered queryset rather than a user, so History can hand
+    it exactly the sessions it is showing and the figures always describe what
+    is on screen. Whatever narrowed that queryset - the month, a subject, a
+    search - has already been applied, ownership included.
+    """
+    totals = sessions.aggregate(
+        focused_minutes=Sum("focused_minutes"),
+        sessions_count=Count("id"),
+    )
+
+    # Unique calendar dates, not sessions: three sessions in one evening are
+    # one study day. TruncDate converts each stored UTC timestamp into the
+    # project timezone first, exactly as get_study_dates does.
+    study_days = (
+        sessions.annotate(day=TruncDate("started_at"))
+        .values_list("day", flat=True)
+        # order_by() clears the model's default ordering, which would otherwise
+        # join started_at into the query and make distinct() see every session
+        # as different.
+        .order_by()
+        .distinct()
+        .count()
+    )
+
+    return {
+        # Sum() returns None when there are no rows, so fall back to zero.
+        "focused_minutes": totals["focused_minutes"] or 0,
+        "sessions_count": totals["sessions_count"],
+        "study_days": study_days,
     }
 
 

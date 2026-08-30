@@ -3,17 +3,20 @@ import { useState } from "react";
 import Button from "../ui/Button";
 
 const BREAK_MINUTES = [5, 10, 15];
-const DEFAULT_BREAK_MINUTES = 10;
 
 /*
   The break invitation, shown once a session is safely in the database.
 
-  It only offers; it never starts anything by itself. The chosen length lives in
-  local state because it means nothing until Start break is pressed, and only
-  the running timer belongs in Redux.
+  It only offers; it never starts anything by itself. The length chosen back on
+  the setup screen arrives as the default, so somebody who already decided does
+  not have to decide again - but it can still be changed here, because how long
+  a break should be is easier to judge once the work is done.
+
+  The chosen length lives in local state because it means nothing until Start
+  break is pressed, and only the running timer belongs in Redux.
 */
-function BreakOffer({ onStartBreak, onSkipBreak }) {
-  const [selectedMinutes, setSelectedMinutes] = useState(DEFAULT_BREAK_MINUTES);
+function BreakOffer({ defaultMinutes, onStartBreak, onSkipBreak }) {
+  const [selectedMinutes, setSelectedMinutes] = useState(defaultMinutes);
 
   return (
     <div className="mt-6 border-t border-rule pt-6">

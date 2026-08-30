@@ -1,4 +1,4 @@
-import { CalendarSearch, NotebookPen } from "lucide-react";
+import { CalendarOff, CalendarSearch, NotebookPen } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import Button from "../ui/Button";
@@ -7,23 +7,42 @@ import EmptyState from "../ui/EmptyState";
 /*
   What History says when there is nothing to show.
 
-  Two situations that look identical on screen but mean opposite things: a
-  filter that happened to match nothing, and a user who has not studied yet.
-  Telling someone "no sessions found" on their first day would read like the
-  app had lost their work.
+  Three situations that look identical on screen but mean quite different
+  things: a filter that happened to match nothing, a quiet month in an archive
+  that is otherwise full, and a user who has not studied yet. Telling someone
+  "no sessions found" on their first day would read like the app had lost
+  their work.
 */
-function HistoryEmptyState({ hasActiveFilters, onResetFilters }) {
+function HistoryEmptyState({
+  monthLabel,
+  hasActiveFilters,
+  hasAnyHistory,
+  onResetFilters,
+}) {
   if (hasActiveFilters) {
     return (
       <EmptyState
         icon={CalendarSearch}
         title="No sessions found."
-        description="Try another subject or date range."
+        description={`Nothing in ${monthLabel} matches. Try another subject, search or month.`}
         action={
           <Button variant="secondary" onClick={onResetFilters}>
             Clear filters
           </Button>
         }
+      />
+    );
+  }
+
+  // An empty month is not an empty archive. Somebody looking back at a month
+  // they did not study in should be told that, not that they have never
+  // studied at all.
+  if (hasAnyHistory) {
+    return (
+      <EmptyState
+        icon={CalendarOff}
+        title={`No study sessions in ${monthLabel}.`}
+        description="Use the arrows above to look at another month."
       />
     );
   }

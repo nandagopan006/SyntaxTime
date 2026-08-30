@@ -2,6 +2,8 @@ import { LogOut, Timer } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { openFocusWindow } from "../../desktop/focusWindow";
+import { isDesktopApp } from "../../desktop/isDesktop";
 import { toggleFocusPopup } from "../../features/ui/uiSlice";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/Button";
@@ -33,6 +35,24 @@ function TopBar() {
   const hasSession = timer.isRunning || timer.isPaused || timer.isCompleted;
   const isBreak = timer.mode === "break";
 
+  // The desktop build gets a real always-on-top window; a browser tab cannot
+  // float above anything, so it keeps the in-page panel rather than pretending
+  // otherwise.
+  const isDesktop = isDesktopApp();
+
+  /**
+   * Opens the compact timer: the native focus window on the desktop, the
+   * in-page popup in a browser.
+   */
+  function handleOpenTimer() {
+    if (isDesktop) {
+      openFocusWindow();
+      return;
+    }
+
+    dispatch(toggleFocusPopup());
+  }
+
   /** Clears the session and returns the user to the login page. */
   function handleLogout() {
     logout();
@@ -47,9 +67,17 @@ function TopBar() {
         {hasSession && (
           <Button
             size="sm"
-            variant={isFocusPopupOpen ? "primary" : "secondary"}
-            onClick={() => dispatch(toggleFocusPopup())}
-            aria-pressed={isFocusPopupOpen}
+            // In the desktop application this opens a real window that floats
+            // over the editor, so it is never "pressed"; in a browser it is
+            // still the in-page panel, which is.
+            variant={!isDesktop && isFocusPopupOpen ? "primary" : "secondary"}
+            onClick={handleOpenTimer}
+            aria-pressed={isDesktop ? undefined : isFocusPopupOpen}
+            title={
+              isDesktop
+                ? "Opens a small window that stays above your other applications."
+                : undefined
+            }
           >
             <Timer size={15} aria-hidden="true" />
             {isBreak ? "Break timer" : "Focus timer"}

@@ -13,10 +13,12 @@ from .serializers import (
     StudySessionUpdateSerializer,
 )
 from .services import (
+    get_archive_start_date,
     get_profile_statistics,
     get_subject_totals,
     get_today_statistics,
     get_weekly_statistics,
+    summarise_sessions,
 )
 
 
@@ -125,6 +127,35 @@ class StudySessionHistoryView(generics.ListAPIView):
             # in for a session with no completion time, and the id makes the
             # order fully deterministic when two sessions end together.
             .order_by(Coalesce("completed_at", "created_at").desc(), "-id")
+        )
+
+
+class StudyHistorySummaryView(APIView):
+    """
+    Totals for whatever slice of history is being looked at.
+
+    Takes the same query parameters as the history list and starts from the
+    same queryset, so the figures above the archive always describe the
+    sessions below it - including when a subject or a search has narrowed
+    them. Counting in Django rather than the browser is also what lets History
+    stay on one page of results: the totals cover the whole month, not just
+    the rows that have been fetched.
+    """
+
+    def get(self, request):
+        sessions = get_own_sessions(request).filter(
+            status=StudySession.Status.COMPLETED
+        )
+
+        return Response(
+            {
+                **summarise_sessions(sessions),
+                # Deliberately the whole archive rather than this month, which
+                # is why it is named for the archive: the year picker needs to
+                # know how far back the record goes, and asking here saves a
+                # second request for one date.
+                "archive_start_date": get_archive_start_date(request.user),
+            }
         )
 
 

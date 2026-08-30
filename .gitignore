@@ -23,3 +23,7 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Tauri build output. The Rust target directory is large and regenerated.
+frontend/src-tauri/target/
+frontend/src-tauri/gen/

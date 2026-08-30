@@ -31,6 +31,13 @@ const SIZES = {
   lg: "px-5 py-2.5 text-sm",
   md: "px-4 py-2 text-sm",
   sm: "px-3 py-1.5 text-sm",
+
+  // For the desktop focus window, which the user can resize. A control that
+  // stays one size while its window shrinks ends up swallowing the window, so
+  // this scales with it and stops at both ends.
+  fluid:
+    "px-[clamp(0.5rem,2.5vmin,1rem)] py-[clamp(0.25rem,1.4vmin,0.6rem)] " +
+    "text-[clamp(0.6875rem,2.8vmin,0.875rem)]",
 };
 
 /**

@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     ProfileStatisticsView,
+    StudyHistorySummaryView,
     StudySessionDetailView,
     StudySessionHistoryView,
     StudySessionListCreateView,
@@ -15,6 +16,11 @@ urlpatterns = [
     path("sessions/", StudySessionListCreateView.as_view(), name="session-list"),
     path("sessions/<int:pk>/", StudySessionDetailView.as_view(), name="session-detail"),
     path("history/", StudySessionHistoryView.as_view(), name="session-history"),
+    path(
+        "history/summary/",
+        StudyHistorySummaryView.as_view(),
+        name="history-summary",
+    ),
     path("statistics/", TodayStatisticsView.as_view(), name="study-statistics"),
     path(
         "statistics/weekly/",
