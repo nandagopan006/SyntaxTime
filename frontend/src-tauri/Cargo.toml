@@ -9,4 +9,10 @@ rust-version = "1.77.2"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# tray-icon puts SyntaxTime in the notification area, so closing the main
+# window can leave a running session alive instead of ending it.
+tauri = { version = "2", features = ["tray-icon"] }
+# Tells the user a session has ended while they are working in something
+# else. Without it a finished session is only visible to somebody already
+# looking at SyntaxTime, which is the one person who does not need telling.
+tauri-plugin-notification = "2"

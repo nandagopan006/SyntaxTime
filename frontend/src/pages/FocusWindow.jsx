@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import FocusClock from "../components/timer/FocusClock";
@@ -9,7 +9,7 @@ import {
   requestTimerState,
   sendTimerCommand,
 } from "../desktop/desktopEvents";
-import { hideCurrentWindow } from "../desktop/focusWindow";
+import { hideCurrentWindow, showMainWindow } from "../desktop/focusWindow";
 import { formatStudyTime } from "../utils/formatTime";
 import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../utils/studySession";
 
@@ -30,8 +30,17 @@ import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../utils/studySession";
 // The window is its own viewport, so vmin is simply "the short side of this
 // window". One spacing scale, used everywhere, so the whole thing grows and
 // shrinks together instead of drifting apart.
-const CONTENT_PADDING = "p-[clamp(0.5rem,3vmin,1rem)]";
-const CONTENT_GAP = "gap-[clamp(0.25rem,1.8vmin,0.75rem)]";
+//
+// Deliberately tight: the clock is what the window is for, and every pixel
+// spent on padding or on a taller button is a pixel it does not get.
+const CONTENT_PADDING = "p-[clamp(0.375rem,2.2vmin,0.75rem)]";
+const CONTENT_GAP = "gap-[clamp(0.1875rem,1.3vmin,0.5rem)]";
+
+// Both header buttons share one shape, so they read as a pair rather than two
+// unrelated controls.
+const HEADER_BUTTON =
+  "flex h-5 w-5 items-center justify-center rounded-md text-ink-faint " +
+  "transition-colors hover:bg-surface-sunken hover:text-ink";
 
 /**
  * Starts a native window drag when the header bar is pressed.
@@ -95,17 +104,32 @@ function FocusWindow() {
           Syntax<span className="text-brass">Time</span>
         </p>
 
-        <button
-          type="button"
-          onClick={hideCurrentWindow}
-          aria-label="Close the focus window"
-          // Says what it does not do, because closing a timer window looks
-          // like it should stop the timer.
-          title="Close this window. The session keeps running."
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-surface-sunken hover:text-ink"
-        >
-          <X size={13} aria-hidden="true" />
-        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {/* The main window can be hidden entirely now that the application
+              lives in the notification area, so this has to be a way back to
+              it rather than just a way to focus it. */}
+          <button
+            type="button"
+            onClick={showMainWindow}
+            aria-label="Open the main SyntaxTime window"
+            title="Open the main window"
+            className={HEADER_BUTTON}
+          >
+            <Maximize2 size={12} aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            onClick={hideCurrentWindow}
+            aria-label="Close the focus window"
+            // Says what it does not do, because closing a timer window looks
+            // like it should stop the timer.
+            title="Close this window. The session keeps running."
+            className={HEADER_BUTTON}
+          >
+            <X size={13} aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {/* min-h-0 lets this shrink below its content's natural height, which is
@@ -184,7 +208,7 @@ function FocusWindow() {
                   Finish
                 </Button>
                 <Button
-                  variant="quiet"
+                  variant="secondary"
                   size="fluid"
                   fullWidth
                   onClick={() => sendTimerCommand(TIMER_COMMANDS.reset)}

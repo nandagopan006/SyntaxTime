@@ -16,6 +16,27 @@ export default defineConfig({
         main: resolve(import.meta.dirname, "index.html"),
         focusWindow: resolve(import.meta.dirname, "focus-window.html"),
       },
+      output: {
+        // Recharts is by far the largest thing here and only the Home chart
+        // uses it. Splitting it out keeps it out of the focus window's bundle
+        // entirely, and means editing application code does not invalidate a
+        // cached copy of a library that has not changed.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return undefined;
+          }
+          if (id.includes("recharts") || id.includes("d3-")) {
+            return "charts";
+          }
+          if (id.includes("react-dom") || id.includes("react-router")) {
+            return "react";
+          }
+          if (id.includes("redux")) {
+            return "redux";
+          }
+          return undefined;
+        },
+      },
     },
   },
   // Tauri prints its own compile progress; letting Vite wipe the screen would

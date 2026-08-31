@@ -69,8 +69,8 @@ const SIZES = {
   // status label at about six pixels in a small window, which is a label
   // nobody can read.
   fluid: {
-    frame: "w-[min(66vw,34vh)]",
-    time: "text-[clamp(1.125rem,9.5vmin,3rem)]",
+    frame: "w-[min(78vw,46vh)]",
+    time: "text-[clamp(1.25rem,12vmin,3.5rem)]",
     label: "text-[clamp(0.5rem,2.2vmin,0.6875rem)] tracking-[0.12em]",
   },
 };

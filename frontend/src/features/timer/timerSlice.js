@@ -56,6 +56,33 @@ const timerSlice = createSlice({
   name: "timer",
   initialState,
   reducers: {
+    /**
+     * Brings back a session that was running when the application closed.
+     *
+     * Restored paused, holding exactly the time the snapshot recorded. It is
+     * deliberately not resumed: the application cannot know whether it was
+     * closed for two minutes or overnight, and counting that gap as study time
+     * would feed invented minutes into every total, streak and leaderboard.
+     *
+     * runningSince stays null, so nothing accrues until the user resumes and
+     * the resume reducer sets the measuring point from the remaining time.
+     */
+    restoreTimer(state, action) {
+      const snapshot = action.payload;
+
+      state.mode = snapshot.mode;
+      state.durationSeconds = snapshot.durationSeconds;
+      state.remainingSeconds = snapshot.remainingSeconds;
+      state.elapsedFocusSeconds = snapshot.elapsedFocusSeconds ?? 0;
+      state.subject = snapshot.subject ?? "";
+      state.topic = snapshot.topic ?? "";
+      state.startedAt = snapshot.startedAt ?? null;
+      state.isRunning = false;
+      state.isPaused = true;
+      state.isCompleted = false;
+      state.runningSince = null;
+    },
+
     /** Sets the chosen focus length and puts the countdown at its starting point. */
     setDuration(state, action) {
       state.durationSeconds = action.payload;
@@ -197,6 +224,7 @@ const timerSlice = createSlice({
 });
 
 export const {
+  restoreTimer,
   setDuration,
   setSubject,
   setTopic,

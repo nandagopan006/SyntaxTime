@@ -4,7 +4,9 @@ import { Outlet } from "react-router-dom";
 
 import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
 import { useFocusWindowBridge } from "../../hooks/useFocusWindowBridge";
+import { useSessionNotifications } from "../../hooks/useSessionNotifications";
 import { useTimer } from "../../hooks/useTimer";
+import { useTimerPersistence } from "../../hooks/useTimerPersistence";
 import { useTimerShortcuts } from "../../hooks/useTimerShortcuts";
 import FocusMode from "../timer/FocusMode";
 import FocusTimerPopup from "../timer/FocusTimerPopup";
@@ -27,6 +29,12 @@ function AppShell() {
   // Beside useTimer on purpose: the window that counts the session is the
   // window that answers the focus window's buttons. Does nothing in a browser.
   useFocusWindowBridge();
+  // And the window that counts the session is the one that remembers it, so a
+  // session survives closing the application.
+  useTimerPersistence();
+  // Mounted here too, so one ending produces one notification however many
+  // views of the timer are open.
+  useSessionNotifications();
 
   const dispatch = useDispatch();
   const isFocusPopupOpen = useSelector((state) => state.ui.isFocusPopupOpen);

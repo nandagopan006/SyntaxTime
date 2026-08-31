@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { openFocusWindow } from "../../desktop/focusWindow";
 import { isDesktopApp } from "../../desktop/isDesktop";
 import { toggleFocusPopup } from "../../features/ui/uiSlice";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/useAuth";
 import Button from "../ui/Button";
 import { navigationItems } from "./navigationItems";
 
