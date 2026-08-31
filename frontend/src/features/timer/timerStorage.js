@@ -68,6 +68,9 @@ export function saveTimerSnapshot(timer) {
         subject: timer.subject,
         topic: timer.topic,
         startedAt: timer.startedAt,
+        // Interruptions belong to the session, so a session that comes back
+        // comes back knowing how often it was already interrupted.
+        pauseCount: timer.pauseCount ?? 0,
         // The local day this was written on, so a session cannot be restored
         // into a day it was not studied in.
         savedOn: toApiDate(new Date()),

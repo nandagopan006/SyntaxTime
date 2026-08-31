@@ -33,10 +33,16 @@ INSTALLED_APPS = [
     "apps.study",
     "apps.friends",
     "apps.leaderboard",
+    "apps.coach",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves Django's own static files in production, where there is no web
+    # server in front of Django to do it. Directly after SecurityMiddleware is
+    # where WhiteNoise has to sit for it to see every response. It does nothing
+    # under runserver, which serves static files itself.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     # CORS must come before CommonMiddleware so its headers are added to
     # every response, including redirects.
     "corsheaders.middleware.CorsMiddleware",
@@ -107,6 +113,22 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+
+# Where `collectstatic` gathers the admin's CSS and JavaScript during a
+# deployment. Without this the command has nowhere to write and fails, which is
+# why it has to exist before the first deploy rather than after it.
+# The directory is generated, so it is not committed.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Compresses the collected files and gives each a name containing a hash of its
+# contents, so a changed file is never served from a stale cache.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Every API request is identified by a JWT in the Authorization header,
@@ -127,8 +149,39 @@ REST_FRAMEWORK = {
         # someone working through tokens.
         "password_reset": "5/hour",
         "password_reset_confirm": "20/hour",
+        # Every message to the focus coach costs a request to an AI provider,
+        # so it is capped per user. Raised from thirty once the coach became a
+        # conversation: one interruption can now be several messages, and a cap
+        # that made somebody run out mid-sentence would be worse than no coach.
+        # Pausing and finishing still work once it is reached.
+        "coach": "120/hour",
     },
 }
+
+# The focus coach. Like the Brevo key above, this is a password: it stays in
+# the environment, is read only by the backend, and never reaches the browser,
+# a URL or a response body.
+AI_API_KEY = os.getenv("AI_API_KEY", "")
+
+# Which provider answers. "groq" or "anthropic".
+#
+# Groq by default because it is free and unusually fast, and speed is what this
+# feature needs: the user is mid-session waiting for two sentences, and the
+# request gives up after eight. The trade-off is real - a smaller, faster model
+# follows the coach's rules about shaming and medical claims less reliably than
+# a larger one - so anthropic is one setting away when that matters more.
+AI_PROVIDER = os.getenv("AI_PROVIDER", "groq")
+
+# A small, fast model on purpose. The coach writes two or three sentences about
+# one interruption, which is not work that needs a larger one.
+#
+# Model names change often on both providers. If a request starts failing,
+# check the provider's current list rather than assuming the key is wrong.
+DEFAULT_AI_MODELS = {
+    "groq": "openai/gpt-oss-120b",
+    "anthropic": "claude-haiku-4-5-20251001",
+}
+AI_MODEL = os.getenv("AI_MODEL") or DEFAULT_AI_MODELS.get(AI_PROVIDER, "")
 
 # Brevo sends the verification email. The key lives here and nowhere else: it
 # must never reach the browser, a URL, or a response body.
@@ -182,6 +235,65 @@ CORS_ALLOWED_ORIGINS = [
     # Tauri serves the packaged build over its own protocol, which the browser
     # treats as a different origin. Windows uses http://tauri.localhost, and
     # the other platforms use the tauri:// scheme.
+    #
+    # These stay whatever happens: the installed application uses them on every
+    # machine, so they are not deployment-specific and there is nothing to
+    # configure per environment.
     "http://tauri.localhost",
     "tauri://localhost",
 ]
+
+# The deployed web frontend's address, which is only known once it is hosted.
+# Kept in the environment rather than here so putting SyntaxTime on a new
+# domain does not mean editing code and redeploying the backend.
+#
+# Comma-separated, and each must be a full origin with its scheme:
+#   CORS_ALLOWED_ORIGINS=https://syntaxtime.vercel.app
+CORS_ALLOWED_ORIGINS += [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+
+# Everything below applies only when DEBUG is off, which is to say only in a
+# real deployment. Turning these on locally would redirect http://localhost to
+# https://localhost, which nothing is listening on, and development would stop
+# working for no benefit.
+if not DEBUG:
+    # The host terminates HTTPS and forwards plain HTTP inside its network, so
+    # Django sees an insecure request and would redirect it to HTTPS forever.
+    # This header is how the proxy says "the original request was secure".
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    # Anyone arriving over http:// is sent to https:// instead.
+    SECURE_SSL_REDIRECT = True
+
+    # Cookies are only ever sent over HTTPS. SyntaxTime authenticates with JWTs
+    # rather than the session cookie, but the admin uses both.
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # Tells browsers to use HTTPS for this domain from now on, so even a typed
+    # http:// address never leaves the machine unencrypted. Set to one hour
+    # rather than the usual year on purpose: a long value is remembered by the
+    # browser and cannot be taken back, which is painful on a first deployment.
+    # Raise it once the domain is settled.
+    SECURE_HSTS_SECONDS = 3600
+
+    # `manage.py check --deploy` warns that SECURE_HSTS_INCLUDE_SUBDOMAINS and
+    # SECURE_HSTS_PRELOAD are unset. Both are left off on purpose while
+    # SyntaxTime runs on a hosting provider's shared domain.
+    #
+    # Preloading in particular is close to irreversible: the domain is baked
+    # into browsers themselves and removal takes months. Neither belongs on a
+    # domain that is not ours. Turn both on, and raise SECURE_HSTS_SECONDS to a
+    # year, once SyntaxTime has a domain of its own served entirely over HTTPS.
+
+    # The API is read from a browser and from the desktop application, and
+    # neither has any reason to guess at a content type.
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
+    # The reset link in an email carries a token in its path, so it must not be
+    # handed to another site in a Referer header.
+    SECURE_REFERRER_POLICY = "same-origin"

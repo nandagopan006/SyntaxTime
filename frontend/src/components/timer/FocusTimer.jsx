@@ -2,16 +2,16 @@ import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
+import { useFocusCoach } from "../../context/useFocusCoach";
 import {
   fetchRecentSessions,
   fetchWeeklyStatistics,
   saveStudySession,
   selectLiveTodayFocusSeconds,
+  updateSessionDetails,
 } from "../../features/statistics/statisticsSlice";
 import {
   clearTimer,
-  finishTimer,
-  pauseTimer,
   resetTimer,
   resumeTimer,
   setDuration,
@@ -56,6 +56,9 @@ function FocusTimer() {
   const dispatch = useDispatch();
   const timer = useSelector((state) => state.timer);
   const liveTodaySeconds = useSelector(selectLiveTodayFocusSeconds);
+  // Pausing and finishing ask why first. The coach dispatches the same timer
+  // actions this component used to dispatch directly, once the user decides.
+  const { openPauseCoach, openFinishCoach } = useFocusCoach();
 
   // What should happen after this session. Local, because it is a preference
   // for a session that has not started, and because Redux is wiped the moment
@@ -70,6 +73,18 @@ function FocusTimer() {
   const [completedSession, setCompletedSession] = useState(null);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | failed
   const [saveError, setSaveError] = useState("");
+
+  // The row the session became. Anything the user writes afterwards is an edit
+  // of it rather than a new record, so this is what those edits are sent to.
+  const [savedSessionId, setSavedSessionId] = useState(null);
+
+  // The optional details, which are written after the session already exists.
+  const [detailsState, setDetailsState] = useState("idle"); // idle | saving | failed
+  const [detailsError, setDetailsError] = useState("");
+
+  // Whether the user has finished with the details step, either by writing
+  // them or by saying they are done. The break is only offered after that.
+  const [isDetailsDone, setIsDetailsDone] = useState(false);
 
   // One finished session must produce exactly one saved record, however many
   // times the save is triggered.
@@ -111,6 +126,36 @@ function FocusTimer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timer.isCompleted, timer.mode]);
 
+  /*
+    The session records itself the moment it ends.
+
+    Waiting for a button meant a session that reached zero while the user was
+    away from the machine - which is most of them, because the whole point of
+    the focus window is that they are working in something else - was still
+    only in the browser. Closing the application then lost work that had
+    actually been done.
+
+    The details below are optional and always were, so there is nothing to
+    wait for. They become an edit of a row that already exists rather than
+    part of creating it.
+  */
+  useEffect(() => {
+    if (!completedSession || hasSavedRef.current) {
+      return;
+    }
+
+    // Whatever was set before starting. The user may not have opened the form
+    // yet, and may never open it.
+    saveSession({
+      subject: completedSession.subject,
+      topic: completedSession.topic,
+      notes: "",
+    });
+    // saveSession is recreated on every render and guarded by hasSavedRef, so
+    // depending on it would re-run this without adding any safety.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedSession]);
+
   async function saveSession(details) {
     if (hasSavedRef.current) {
       return;
@@ -137,6 +182,7 @@ function FocusTimer() {
     }
 
     setSaveState("saved");
+    setSavedSessionId(result.payload?.session?.id ?? null);
 
     // The rest of the dashboard is not part of the live total, so it catches
     // up on its own.
@@ -144,18 +190,57 @@ function FocusTimer() {
     dispatch(fetchRecentSessions());
   }
 
-  /** Saves the session together with whatever details the user filled in. */
-  function handleSaveSession(details) {
-    saveSession(details);
+  /**
+   * Writes what the user studied onto the session that already exists.
+   *
+   * If the automatic save failed, there is no row to edit, so this creates it
+   * instead - carrying the details with it, so nothing typed is lost to the
+   * retry.
+   */
+  async function handleSaveDetails(details) {
+    if (saveState === "failed" || savedSessionId === null) {
+      // hasSavedRef was released by the failure, so this is a fresh attempt.
+      await saveSession(details);
+      // Only move on if that attempt actually worked. saveSession has already
+      // shown the error otherwise.
+      setIsDetailsDone((done) => done || hasSavedRef.current);
+      return;
+    }
+
+    setDetailsState("saving");
+    setDetailsError("");
+
+    const result = await dispatch(
+      updateSessionDetails({ id: savedSessionId, details })
+    );
+
+    if (updateSessionDetails.rejected.match(result)) {
+      setDetailsState("failed");
+      setDetailsError(result.payload ?? "Unable to save these details.");
+      return;
+    }
+
+    setDetailsState("idle");
+    setIsDetailsDone(true);
   }
 
-  /** Saves the session without the optional details. Skip never discards it. */
+  /**
+   * Leaves the details unwritten. The session is already recorded, so this
+   * discards nothing - it only closes the form.
+   */
   function handleSkipDetails() {
-    saveSession({
-      subject: completedSession.subject,
-      topic: completedSession.topic,
-      notes: "",
-    });
+    if (saveState === "failed") {
+      // Nothing is in the database yet, so this is a retry without details
+      // rather than a way past the error.
+      saveSession({
+        subject: completedSession.subject,
+        topic: completedSession.topic,
+        notes: "",
+      });
+      return;
+    }
+
+    setIsDetailsDone(true);
   }
 
   /** Closes the finished session and returns the card to its idle state. */
@@ -164,6 +249,10 @@ function FocusTimer() {
     setCompletedSession(null);
     setSaveState("idle");
     setSaveError("");
+    setSavedSessionId(null);
+    setDetailsState("idle");
+    setDetailsError("");
+    setIsDetailsDone(false);
     dispatch(clearTimer());
   }
 
@@ -202,7 +291,10 @@ function FocusTimer() {
         defaultTopic={completedSession.topic}
         saveState={saveState}
         errorMessage={saveError}
-        onSave={handleSaveSession}
+        detailsState={detailsState}
+        detailsError={detailsError}
+        isDetailsDone={isDetailsDone}
+        onSave={handleSaveDetails}
         onSkip={handleSkipDetails}
         breakMinutes={completedSession.breakMinutes}
         onStartBreak={handleStartBreak}
@@ -291,10 +383,10 @@ function FocusTimer() {
           onStart={() =>
             dispatch(startTimer({ startedAt: new Date().toISOString(), now: Date.now() }))
           }
-          onPause={() => dispatch(pauseTimer(Date.now()))}
+          onPause={() => openPauseCoach()}
           onResume={() => dispatch(resumeTimer(Date.now()))}
           onReset={() => dispatch(resetTimer())}
-          onFinish={() => dispatch(finishTimer(Date.now()))}
+          onFinish={() => openFinishCoach()}
         />
         )}
 

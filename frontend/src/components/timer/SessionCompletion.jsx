@@ -8,14 +8,15 @@ import BreakOffer from "./BreakOffer";
 /*
   Shown once a focus session ends.
 
-  The session is already finished and its focused time is already measured, so
-  nothing here is required. The form only invites the user to record what they
-  studied, which is what turns History into a memory rather than a list of
-  durations. Skip saves the session too.
+  The session has already saved itself by the time this appears, so nothing
+  here is holding the record hostage: the form only invites the user to say
+  what they studied, which is what turns History into a memory rather than a
+  list of durations. Writing details updates the saved session; skipping
+  leaves it exactly as it is.
 
-  The break is offered only from the saved state below. A break must never
-  follow a session that failed to reach the database, because that would look
-  like the work had been recorded when it had not.
+  The break is offered only once the user is finished with the details, and
+  never while the session failed to reach the database - that would look like
+  the work had been recorded when it had not.
 */
 function SessionCompletion({
   focusedSeconds,
@@ -23,6 +24,9 @@ function SessionCompletion({
   defaultTopic,
   saveState,
   errorMessage,
+  detailsState,
+  detailsError,
+  isDetailsDone,
   breakMinutes,
   onSave,
   onSkip,
@@ -35,8 +39,16 @@ function SessionCompletion({
   const [topic, setTopic] = useState(defaultTopic);
   const [notes, setNotes] = useState("");
 
-  const isSaving = saveState === "saving";
   const isSaved = saveState === "saved";
+  const hasFailed = saveState === "failed";
+
+  // Either request being in flight closes the form to editing: the first is
+  // the session recording itself, the second is these details reaching it.
+  const isBusy = saveState === "saving" || detailsState === "saving";
+
+  // The break follows the details step, and only once the session is safely
+  // recorded.
+  const isFinished = isDetailsDone && isSaved;
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -52,7 +64,7 @@ function SessionCompletion({
         {formatStudyTime(focusedSeconds)}
       </p>
 
-      {isSaved ? (
+      {isFinished ? (
         <div className="mt-8 border-t border-rule pt-6">
           <p className="text-sm text-forest">Session saved.</p>
           <p className="mt-1 text-sm text-ink-muted">
@@ -76,11 +88,20 @@ function SessionCompletion({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-8 border-t border-rule pt-6">
-          <p className="text-sm text-ink-muted">
+          {/* Said before the fields, not after them, because the reason the
+              form is relaxed about being ignored is that the work is already
+              recorded. */}
+          {isSaved && (
+            <p className="text-sm text-forest">
+              Saved automatically. Nothing here is required.
+            </p>
+          )}
+
+          <p className={`text-sm text-ink-muted${isSaved ? " mt-1" : ""}`}>
             Want to record what you studied? All of this is optional.
           </p>
 
-          <fieldset disabled={isSaving} className="mt-5 space-y-4">
+          <fieldset disabled={isBusy} className="mt-5 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label
@@ -137,7 +158,7 @@ function SessionCompletion({
             </div>
           </fieldset>
 
-          {saveState === "failed" && (
+          {hasFailed && (
             <div className="mt-5" role="alert">
               <p className="text-sm text-burgundy">{errorMessage}</p>
               <p className="mt-1 text-sm text-ink-muted">
@@ -147,22 +168,37 @@ function SessionCompletion({
             </div>
           )}
 
+          {/* The session is safe; only these details failed to reach it. Said
+              differently from the message above on purpose, because the two
+              are not the same kind of loss. */}
+          {detailsState === "failed" && (
+            <div className="mt-5" role="alert">
+              <p className="text-sm text-burgundy">{detailsError}</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                The session itself is saved. Only these details did not reach
+                it, and they can be added later from History.
+              </p>
+            </div>
+          )}
+
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button
               type="submit"
               variant="primary"
-              isBusy={isSaving}
-              busyLabel="Saving session..."
+              isBusy={isBusy}
+              busyLabel={hasFailed ? "Saving session..." : "Saving details..."}
             >
-              Save session
+              {hasFailed ? "Save session" : "Save details"}
             </Button>
 
-            <Button variant="secondary" onClick={onSkip} disabled={isSaving}>
-              Skip
+            <Button variant="secondary" onClick={onSkip} disabled={isBusy}>
+              {hasFailed ? "Skip" : "Done"}
             </Button>
 
             <span className="text-sm text-ink-faint">
-              Skip still saves the session, just without these details.
+              {hasFailed
+                ? "Skip still saves the session, just without these details."
+                : "The session is already saved either way."}
             </span>
           </div>
         </form>

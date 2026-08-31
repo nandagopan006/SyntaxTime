@@ -6,6 +6,7 @@ import {
   getRecentSessions,
   getTodayStatistics,
   getWeeklyStatistics,
+  updateStudySession,
 } from "../../services/studyService";
 
 /*
@@ -55,8 +56,10 @@ export const fetchRecentSessions = createAsyncThunk(
 export const saveStudySession = createAsyncThunk(
   "statistics/saveStudySession",
   async (sessionPayload, { dispatch, rejectWithValue }) => {
+    let session;
+
     try {
-      await createStudySession(sessionPayload);
+      session = await createStudySession(sessionPayload);
     } catch (error) {
       // Only this request failing means the session was not recorded, so the
       // user is offered a retry and the timer is left exactly as it was.
@@ -65,16 +68,44 @@ export const saveStudySession = createAsyncThunk(
       );
     }
 
+    // The saved session comes back with the rest, because a session now
+    // records itself the moment it ends and any details the user writes
+    // afterwards are an edit of this row. Without its id there would be
+    // nothing to attach them to.
     try {
-      return await getTodayStatistics();
+      return { session, statistics: await getTodayStatistics() };
     } catch {
       // The session is in the database either way, so a failure here must not
       // report the save as failed. Ask for the totals separately; until they
       // arrive the panel shows the last figures it confirmed rather than a
       // total that counts this session twice.
       dispatch(fetchTodayStatistics());
-      return null;
+      return { session, statistics: null };
     }
+  }
+);
+
+/**
+ * Adds the optional details to a session that is already in the database.
+ *
+ * A session saves itself the moment it ends, so by the time the user has
+ * finished writing there is a row to update rather than one to create. Subject
+ * and topic change today's subject split, so the totals are re-read afterwards.
+ */
+export const updateSessionDetails = createAsyncThunk(
+  "statistics/updateSessionDetails",
+  async ({ id, details }, { dispatch, rejectWithValue }) => {
+    try {
+      await updateStudySession(id, details);
+    } catch (error) {
+      return rejectWithValue(
+        getErrorMessage(error, "Unable to save these details.")
+      );
+    }
+
+    dispatch(fetchTodayStatistics());
+    dispatch(fetchRecentSessions());
+    return true;
   }
 );
 
@@ -136,9 +167,10 @@ const statisticsSlice = createSlice({
       })
 
       .addCase(saveStudySession.fulfilled, (state, action) => {
-        // Null means the save succeeded but the totals could not be re-read.
-        if (action.payload) {
-          applyTodayStatistics(state, action.payload);
+        // Null statistics mean the save succeeded but the totals could not be
+        // re-read. The session itself is in the database either way.
+        if (action.payload?.statistics) {
+          applyTodayStatistics(state, action.payload.statistics);
         }
       })
 

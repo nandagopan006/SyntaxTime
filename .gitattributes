@@ -1,0 +1,5 @@
+# Shell scripts must keep Unix line endings whatever machine they are edited on.
+# A build script checked out with CRLF fails on the host with a confusing
+# "bad interpreter" error, because the shebang line ends in a stray carriage
+# return that the kernel treats as part of the interpreter's name.
+*.sh text eol=lf

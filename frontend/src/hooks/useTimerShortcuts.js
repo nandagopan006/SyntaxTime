@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
-import { pauseTimer, resumeTimer } from "../features/timer/timerSlice";
+import { useFocusCoach } from "../context/useFocusCoach";
+import { resumeTimer } from "../features/timer/timerSlice";
 
 // Anything the browser already gives a meaning to when Space is pressed.
 const INTERACTIVE = ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"];
@@ -33,6 +34,9 @@ function isSomeoneElsesKeypress(event) {
  */
 export function useTimerShortcuts() {
   const dispatch = useDispatch();
+  // Space is a pause like any other, so it asks why like any other. Resuming
+  // is not an interruption and goes straight through.
+  const { openPauseCoach } = useFocusCoach();
   const isRunning = useSelector((state) => state.timer.isRunning);
   const isPaused = useSelector((state) => state.timer.isPaused);
 
@@ -49,10 +53,15 @@ export function useTimerShortcuts() {
 
       // Space scrolls the page by default, which would be a surprise.
       event.preventDefault();
-      dispatch(isRunning ? pauseTimer(Date.now()) : resumeTimer(Date.now()));
+
+      if (isRunning) {
+        openPauseCoach();
+        return;
+      }
+      dispatch(resumeTimer(Date.now()));
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isRunning, isPaused, dispatch]);
+  }, [isRunning, isPaused, dispatch, openPauseCoach]);
 }
