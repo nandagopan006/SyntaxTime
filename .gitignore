@@ -44,3 +44,6 @@ media/
 
 # Windows shell leftovers.
 desktop.ini
+.agents/
+.claude/
+skills-lock.json
