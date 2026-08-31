@@ -32,6 +32,14 @@ const initialState = {
   // pushed forward by however long the session was paused, so the difference
   // between now and this value is always the real focused time.
   runningSince: null,
+  // How many times this session has been interrupted, counted from the moment
+  // the user reaches for Pause rather than from the pause itself - somebody who
+  // stops to think and then carries on was still interrupted.
+  //
+  // It belongs to the session and dies with it. It is context for the focus
+  // coach's question, never a score: nothing in SyntaxTime reads it to judge
+  // anybody, and it is never saved or sent anywhere but the coach.
+  pauseCount: 0,
 };
 
 /** Recalculates elapsed and remaining time from the running-since timestamp. */
@@ -81,6 +89,7 @@ const timerSlice = createSlice({
       state.isPaused = true;
       state.isCompleted = false;
       state.runningSince = null;
+      state.pauseCount = snapshot.pauseCount ?? 0;
     },
 
     /** Sets the chosen focus length and puts the countdown at its starting point. */
@@ -117,6 +126,7 @@ const timerSlice = createSlice({
       state.topic = "";
       state.startedAt = null;
       state.runningSince = now;
+      state.pauseCount = 0;
     },
 
     /**
@@ -134,6 +144,19 @@ const timerSlice = createSlice({
       state.remainingSeconds = state.durationSeconds;
       state.startedAt = startedAt;
       state.runningSince = now;
+      state.pauseCount = 0;
+    },
+
+    /**
+     * Records that the user has reached for Pause or Finish.
+     *
+     * Counted on the interruption rather than on the pause, because somebody
+     * who stops, thinks, and decides to carry on was still interrupted - and
+     * the coach's question should reflect that. Separate from pauseTimer so
+     * that asking about a pause never causes one.
+     */
+    countInterruption(state) {
+      state.pauseCount += 1;
     },
 
     /** Recalculates the countdown. Dispatched on a short interval while running. */
@@ -185,6 +208,7 @@ const timerSlice = createSlice({
       state.isCompleted = false;
       state.startedAt = null;
       state.runningSince = null;
+      state.pauseCount = 0;
     },
 
     /**
@@ -224,6 +248,7 @@ const timerSlice = createSlice({
 });
 
 export const {
+  countInterruption,
   restoreTimer,
   setDuration,
   setSubject,

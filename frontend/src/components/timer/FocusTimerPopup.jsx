@@ -4,9 +4,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 import { selectLiveTodayFocusSeconds } from "../../features/statistics/statisticsSlice";
+import { useFocusCoach } from "../../context/useFocusCoach";
 import {
-  finishTimer,
-  pauseTimer,
   resetTimer,
   resumeTimer,
 } from "../../features/timer/timerSlice";
@@ -66,6 +65,8 @@ function getRestingPosition() {
 */
 function FocusTimerPopup() {
   const dispatch = useDispatch();
+  // The same dialog the Home card and Focus Mode open. Three views, one coach.
+  const { openPauseCoach, openFinishCoach } = useFocusCoach();
   const navigate = useNavigate();
 
   const timer = useSelector((state) => state.timer);
@@ -122,14 +123,20 @@ function FocusTimerPopup() {
   }
 
   /**
-   * Ends the session and opens Home, where the completion form lives.
-   * The popup deliberately has no form of its own, so a finished session is
-   * only ever recorded in one place.
+   * Asks why, then ends the session and opens Home, where the completion form
+   * lives. The popup deliberately has no form of its own, so a finished session
+   * is only ever recorded in one place.
+   *
+   * The coach dispatches the finish itself; what is handed to it here is only
+   * what the popup needs afterwards. That is what keeps one finish a finish.
    */
   function handleFinish() {
-    dispatch(finishTimer(Date.now()));
-    dispatch(closeFocusPopup());
-    navigate("/");
+    openFinishCoach({
+      afterConfirm: () => {
+        dispatch(closeFocusPopup());
+        navigate("/");
+      },
+    });
   }
 
   /** Sends the user to Home to record the session that has just finished. */
@@ -224,7 +231,7 @@ function FocusTimerPopup() {
                 isRunning={timer.isRunning}
                 isPaused={timer.isPaused}
                 canStart={false}
-                onPause={() => dispatch(pauseTimer(Date.now()))}
+                onPause={() => openPauseCoach()}
                 onResume={() => dispatch(resumeTimer(Date.now()))}
                 onReset={() => dispatch(resetTimer())}
                 onFinish={handleFinish}

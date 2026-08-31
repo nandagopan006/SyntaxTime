@@ -11,3 +11,13 @@ python-dotenv==1.2.3
 sqlparse==0.6.0
 tzdata==2026.3
 requests==2.34.2
+
+# Production only. Neither is used by `manage.py runserver`, so local
+# development is unchanged by both being installed.
+# gunicorn is the WSGI server the host runs instead of runserver, which is a
+# development tool and must never face the internet. It is Unix-only; on
+# Windows it installs but is never invoked.
+gunicorn==26.2.0
+# whitenoise lets Django serve its own static files, which is what the admin
+# needs when there is no separate web server in front of it.
+whitenoise==6.12.0
