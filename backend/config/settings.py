@@ -33,7 +33,6 @@ INSTALLED_APPS = [
     "apps.study",
     "apps.friends",
     "apps.leaderboard",
-    "apps.coach",
 ]
 
 MIDDLEWARE = [
@@ -149,39 +148,8 @@ REST_FRAMEWORK = {
         # someone working through tokens.
         "password_reset": "5/hour",
         "password_reset_confirm": "20/hour",
-        # Every message to the focus coach costs a request to an AI provider,
-        # so it is capped per user. Raised from thirty once the coach became a
-        # conversation: one interruption can now be several messages, and a cap
-        # that made somebody run out mid-sentence would be worse than no coach.
-        # Pausing and finishing still work once it is reached.
-        "coach": "120/hour",
     },
 }
-
-# The focus coach. Like the Brevo key above, this is a password: it stays in
-# the environment, is read only by the backend, and never reaches the browser,
-# a URL or a response body.
-AI_API_KEY = os.getenv("AI_API_KEY", "")
-
-# Which provider answers. "groq" or "anthropic".
-#
-# Groq by default because it is free and unusually fast, and speed is what this
-# feature needs: the user is mid-session waiting for two sentences, and the
-# request gives up after eight. The trade-off is real - a smaller, faster model
-# follows the coach's rules about shaming and medical claims less reliably than
-# a larger one - so anthropic is one setting away when that matters more.
-AI_PROVIDER = os.getenv("AI_PROVIDER", "groq")
-
-# A small, fast model on purpose. The coach writes two or three sentences about
-# one interruption, which is not work that needs a larger one.
-#
-# Model names change often on both providers. If a request starts failing,
-# check the provider's current list rather than assuming the key is wrong.
-DEFAULT_AI_MODELS = {
-    "groq": "openai/gpt-oss-120b",
-    "anthropic": "claude-haiku-4-5-20251001",
-}
-AI_MODEL = os.getenv("AI_MODEL") or DEFAULT_AI_MODELS.get(AI_PROVIDER, "")
 
 # Brevo sends the verification email. The key lives here and nowhere else: it
 # must never reach the browser, a URL, or a response body.

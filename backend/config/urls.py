@@ -9,6 +9,5 @@ urlpatterns = [
     path("api/study/", include("apps.study.urls")),
     path("api/friends/", include("apps.friends.urls")),
     path("api/leaderboard/", include("apps.leaderboard.urls")),
-    path("api/coach/", include("apps.coach.urls")),
     path("api/goals/", include(goal_urlpatterns)),
 ]
