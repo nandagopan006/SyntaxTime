@@ -6,7 +6,7 @@ import ProfileStats from "../components/profile/ProfileStats";
 import SubjectTotals from "../components/profile/SubjectTotals";
 import Button from "../components/ui/Button";
 import LoadingState from "../components/ui/LoadingState";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { getErrorMessage } from "../services/api";
 import { getProfileStatistics } from "../services/profileService";
 

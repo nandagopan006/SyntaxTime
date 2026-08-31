@@ -30,8 +30,11 @@ import { NO_SUBJECT_LABEL, NO_TOPIC_LABEL } from "../utils/studySession";
 // The window is its own viewport, so vmin is simply "the short side of this
 // window". One spacing scale, used everywhere, so the whole thing grows and
 // shrinks together instead of drifting apart.
-const CONTENT_PADDING = "p-[clamp(0.5rem,3vmin,1rem)]";
-const CONTENT_GAP = "gap-[clamp(0.25rem,1.8vmin,0.75rem)]";
+//
+// Deliberately tight: the clock is what the window is for, and every pixel
+// spent on padding or on a taller button is a pixel it does not get.
+const CONTENT_PADDING = "p-[clamp(0.375rem,2.2vmin,0.75rem)]";
+const CONTENT_GAP = "gap-[clamp(0.1875rem,1.3vmin,0.5rem)]";
 
 // Both header buttons share one shape, so they read as a pair rather than two
 // unrelated controls.

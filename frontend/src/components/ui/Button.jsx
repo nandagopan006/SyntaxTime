@@ -36,8 +36,8 @@ const SIZES = {
   // stays one size while its window shrinks ends up swallowing the window, so
   // this scales with it and stops at both ends.
   fluid:
-    "px-[clamp(0.5rem,2.5vmin,1rem)] py-[clamp(0.25rem,1.4vmin,0.6rem)] " +
-    "text-[clamp(0.6875rem,2.8vmin,0.875rem)]",
+    "px-[clamp(0.5rem,2vmin,0.875rem)] py-[clamp(0.1875rem,0.9vmin,0.4375rem)] " +
+    "text-[clamp(0.625rem,2.2vmin,0.8125rem)]",
 };
 
 /**

@@ -1,6 +1,6 @@
 import { useSelector } from "react-redux";
 
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/useAuth";
 import StudyDeskIllustration from "./StudyDeskIllustration";
 
 /** Returns the greeting that fits the time of day: morning, afternoon or evening. */

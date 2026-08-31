@@ -34,6 +34,9 @@ fn show_window(app: &tauri::AppHandle, label: &str) {
 
 fn main() {
     tauri::Builder::default()
+        // Native notifications, so a session that ends while the user is
+        // in their editor still reaches them.
+        .plugin(tauri_plugin_notification::init())
         .on_window_event(|window, event| {
             let WindowEvent::CloseRequested { api, .. } = event else {
                 return;

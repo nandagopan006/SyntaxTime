@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AppShell from "./components/layout/AppShell";
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/useAuth";
 import ForgotPassword from "./pages/ForgotPassword";
 import Friends from "./pages/Friends";
 import History from "./pages/History";

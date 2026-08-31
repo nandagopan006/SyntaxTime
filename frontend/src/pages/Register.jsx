@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import PasswordInput from "../components/auth/PasswordInput";
 import Button from "../components/ui/Button";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { getErrorMessage } from "../services/api";
 import { savePendingEmail } from "../services/authService";
 

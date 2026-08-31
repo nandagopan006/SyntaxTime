@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   clearTokens,
@@ -7,7 +7,7 @@ import {
 } from "../services/api";
 import * as authService from "../services/authService";
 
-const AuthContext = createContext(null);
+import { AuthContext } from "./useAuth";
 
 /**
  * Holds the signed-in user for the whole application.
@@ -76,12 +76,4 @@ export function AuthProvider({ children }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used inside an AuthProvider.");
-  }
-  return context;
 }

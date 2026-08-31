@@ -330,9 +330,37 @@ overnight, and counting that gap as study time would feed invented minutes
 into every total, streak and leaderboard that reads from the timer. Restoring
 loses at most a few seconds; resuming blindly could gain hours.
 
+A session is only restored on **the day it began**. Today's total is the
+saved total plus whatever the active session has earned, so a session from
+yesterday would come back and add yesterday's minutes to today - and then move
+to yesterday the moment it was saved, because the record is filed by when the
+session began. A session left unsaved overnight is not restored.
+
 The snapshot is refreshed every five seconds while a session runs, and again
-on the way out. Anything malformed, from an older version, or describing a
-session that could not have happened is thrown away rather than restored.
+on the way out. Anything malformed, from an older version, from another day,
+or describing a session that could not have happened is thrown away rather
+than restored.
+
+### Being told a session has ended
+
+A countdown reaching zero in a hidden window tells nobody anything, so
+SyntaxTime sends a native Windows notification when a focus session or a break
+finishes.
+
+Three rules shape it:
+
+- **Not while you are looking at it.** The one person who does not need telling
+  is the one already watching the clock, so nothing is sent when the
+  application has focus.
+- **Once per ending.** The completion flag stays true while the completion form
+  is open, so what is remembered is *which* session was announced rather than
+  merely that one was.
+- **Never in the way of the timer.** Permission is asked for when a session
+  starts rather than when the application opens, and a refused or unavailable
+  permission costs a notification and nothing else.
+
+In a browser these are ordinary web notifications, which need the tab to still
+be open. That is weaker, and SyntaxTime does not pretend otherwise.
 
 ### Windows and permissions
 
@@ -753,7 +781,6 @@ The most recent work is still in the working tree:
 
 Deliberately absent:
 
-- **Notifications** - the one planned feature never built.
 - **Change password from Profile** - password *reset* exists; changing a known
   password while signed in does not.
 - **Offline use** - every page needs the API.
