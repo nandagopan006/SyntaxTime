@@ -1,250 +1,308 @@
-  # SyntaxTime
+# SyntaxTime
 
-SyntaxTime is a personal study application for tracking focused study
-sessions. It runs as a **Windows desktop application** built with Tauri, and
-the same code runs in a browser for development.
+A personal study application built around one focus timer, with a real Windows
+desktop window that stays visible above everything else while you work.
 
-The point of the desktop build is one thing a web page cannot do: a compact
-timer window that stays visible above VS Code, the browser and everything
-else, so a session can be watched without leaving the work.
+SyntaxTime is a Tauri desktop application for Windows. The same React code also
+runs in a browser during development, which is how most of it is built — but the
+reason the desktop build exists is one thing a web page cannot do: float a
+compact timer above VS Code, the browser and everything else, so a session can
+be watched without leaving the work.
 
-## Current phase
+```
+Focus  →  Study  →  Record  →  Review  →  Improve
+```
 
-**Phase 23 — Windows desktop application and the native focus window.**
+---
 
-Every planned feature is built: the focus timer, Home dashboard, study
-history, friends, the leaderboard, the personal profile, email-verified
-registration, password reset, and the desktop shell. See the sections below
-for the endpoints and the desktop architecture behind them.
+## Contents
 
-## Technology stack
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Timer architecture](#timer-architecture)
+- [Desktop architecture](#desktop-architecture)
+- [User flows](#user-flows)
+- [Tech stack](#tech-stack)
+- [Project structure](#project-structure)
+- [Getting started](#getting-started)
+- [Environment variables](#environment-variables)
+- [Running it](#running-it)
+- [Building for Windows](#building-for-windows)
+- [Authentication](#authentication)
+- [Email verification](#email-verification)
+- [Password reset](#password-reset)
+- [Study data model](#study-data-model)
+- [Home dashboard](#home-dashboard)
+- [Study history](#study-history)
+- [Friends and leaderboard](#friends-and-leaderboard)
+- [Profile](#profile)
+- [API reference](#api-reference)
+- [Privacy and security](#privacy-and-security)
+- [Scalability principles](#scalability-principles)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Project status](#project-status)
+- [Known limitations](#known-limitations)
+- [Development guidelines](#development-guidelines)
 
-| Layer            | Technology                |
-| ---------------- | ------------------------- |
-| Desktop shell    | Tauri 2, Rust             |
-| Frontend         | React, Vite, JavaScript   |
-| State            | Redux Toolkit             |
-| Styling          | Tailwind CSS              |
-| Charts           | Recharts                  |
-| Backend          | Python, Django            |
-| API framework    | Django REST Framework     |
-| Database         | Neon (PostgreSQL)         |
-| Transactional email | Brevo                  |
-| Version control  | Git, GitHub               |
+---
 
-Rust and Tauri are only the desktop shell: they open windows and nothing
-else. No study logic lives in Rust.
+## Overview
 
-## How it fits together
+SyntaxTime records focused study time and then makes it reviewable. A session is
+started with a chosen length and, optionally, a subject and topic; the timer
+counts down; when it ends the session is saved with optional notes about what
+was learned. Everything after that — the daily total, the weekly chart, the
+month archive, streaks, and the friend leaderboard — is derived from those saved
+sessions.
+
+Three ideas shape the whole application:
+
+| Rule | What it means |
+| --- | --- |
+| **One timer** | `timerSlice` holds the running session and `useTimer` is the only countdown. Home, the popup, Focus Mode and the native focus window are four views of that one state, never four timers. |
+| **Statistics are derived, never stored** | Streaks, leaderboards and profile totals are calculated from `StudySession` on request. There is no table of precomputed figures to go stale. |
+| **Every page is a summary, never an archive** | Home shows today and this week, History opens one month at a time, and friends, requests and search all arrive a page at a time. Nothing grows without limit as the years pass. |
+
+---
+
+## Features
+
+| Feature | Description |
+| --- | --- |
+| **Focus sessions** | A countdown of a chosen length, with optional subject and topic. Pause, resume, reset or finish early. |
+| **Focus Window** | A compact native window that stays above every other application. Resizable, draggable, and a view of the same timer. |
+| **Focus Mode** | A full-screen in-page version of the same clock, for when the whole screen is available. |
+| **Break timer** | The same countdown with none of the meaning: break minutes are never study time. |
+| **Session completion** | Optional notes on what was studied and learned, saved with the session. |
+| **Daily goals** | A target for today, with live progress against it. |
+| **Home dashboard** | Today, this week, today's subjects, recent sessions and a leaderboard preview. |
+| **Study history** | A month-at-a-time archive with search, subject filter, day grouping and editable notes. |
+| **Friends** | User search, friend requests in both directions, and accepted friendships. |
+| **Leaderboard** | Weekly and monthly focused-minute rankings among accepted friends. |
+| **Profile** | Lifetime totals, current and longest streak, study days and a subject breakdown. |
+| **Email verification** | Registration completed by a six-digit code sent through Brevo. No account exists until the code comes back. |
+| **Password reset** | A signed, expiring, single-use link emailed to the address on the account. |
+| **System tray** | Closing a window hides it; SyntaxTime keeps running in the notification area. |
+| **Restart recovery** | A session running when the application closed comes back — paused, holding exactly the time it had. |
+| **Notifications** | Native Windows notifications when a focus session or break ends, suppressed while you are looking at the application. |
+
+---
+
+## Architecture
+
+```
+┌───────────────────────────────────────────────┐
+│              SyntaxTime Desktop               │
+│                                               │
+│   React 19 + Vite                             │
+│        │                                      │
+│        ├── Redux Toolkit   timer, ui, stats   │
+│        ├── AuthContext     the signed-in user │
+│        │                                      │
+│        ├── Main Window     index.html         │
+│        └── Focus Window    focus-window.html  │
+│                                               │
+│              Tauri 2 / Rust                   │
+│              windows, tray, notifications     │
+└───────────────────────┬───────────────────────┘
+                        │  axios + JWT
+                        ▼
+┌───────────────────────────────────────────────┐
+│              Django REST API                  │
+│                                               │
+│   accounts     registration, OTP, login,      │
+│                password reset, current user   │
+│   study        StudySession, DailyGoal,       │
+│                all study statistics           │
+│   friends      Friendship and requests        │
+│   leaderboard  ranking; no models of its own  │
+└───────────────────────┬───────────────────────┘
+                        │
+                        ▼
+                 Neon PostgreSQL
+
+           Django ──▶ Brevo ──▶ user's inbox
+           (the API key never leaves the backend)
+```
+
+Layer by layer:
 
 ```
 React components        what the user sees
-        |
-Redux (timer, ui)       the running session, shared across every view
-        |
+        │
+Redux (timer, ui, statistics)
+        │               the running session, shared across every view
 services/*.js           every HTTP call, one function per endpoint
-        |
+        │
 Django REST             validation, ownership, business rules
-        |
+        │
 PostgreSQL              the only place anything is stored
 ```
 
-On the desktop there are two native windows, and they are still one timer:
+Rust is only the desktop shell: it opens windows, holds the tray icon and
+decides what closing a window means. No study logic lives in it — that would
+give SyntaxTime two places to disagree with itself about how long somebody has
+been working.
 
-```
-        main window                          focus window
-        the whole application                a compact always-on-top clock
-        the countdown runs here   ── state ──▶ draws what it is sent
-        dispatches Redux actions  ◀ command ── Pause / Resume / Reset / Finish
-```
+---
 
-Three rules hold the whole thing together:
+## Timer architecture
 
-- **One timer.** `features/timer/timerSlice.js` holds the running session and
-  `hooks/useTimer.js` is the only countdown. Home, the popup, Focus Mode and
-  the native focus window are four views of that one state, never four timers.
-- **Statistics are derived, never stored.** Streaks, leaderboards and profile
-  totals are calculated from `StudySession` on request. There is no table of
-  precomputed figures to go stale.
-- **Every page is a summary, never an archive.** Home shows today and this
-  week, History opens one month at a time, and friends, requests and search
-  all arrive a page at a time. Nothing grows without limit as the years pass.
+### Where the time comes from
 
-## Project structure
+The timer does **not** count ticks. `setInterval` is not precise — a background
+window can fire it far less often than asked — so counting callbacks would
+slowly lose real study time. Instead the state holds `runningSince`, a
+millisecond timestamp, and every tick recalculates from it:
 
-```
-frontend/
-├── index.html              the main window's page
-├── focus-window.html       the focus window's own page, a second Vite entry
-├── src-tauri/              the desktop shell
-│   ├── src/main.rs         opens windows; no study logic lives here
-│   ├── tauri.conf.json     both windows, their sizes and always-on-top
-│   ├── capabilities/       what the windows may do: windows and events only
-│   └── icons/              generated from icons/source.svg
-└── src/
-    ├── app/store.js            the Redux store
-    ├── features/               Redux slices and the state they own
-    │   ├── timer/              the active session, its status and phase
-    │   ├── statistics/         saved study data shared across pages
-    │   └── ui/                 popup and focus-mode visibility
-    ├── desktop/                everything that only exists on the desktop
-    │   ├── isDesktop.js        Tauri present, or an ordinary browser?
-    │   ├── focusWindow.js      showing, hiding and placing the focus window
-    │   └── desktopEvents.js    the state and command channel between windows
-    ├── components/
-    │   ├── ui/                 Button, Section, PageHeader, Empty/LoadingState
-    │   ├── layout/             shell, sidebar, top bar, error boundary
-    │   ├── auth/               PasswordInput, ProtectedRoute
-    │   ├── timer/              clock, setup, duration picker, controls,
-    │   │                       completion, break, popup, focus mode
-    │   ├── dashboard/          Home sections
-    │   ├── history/            month navigator, summary, list, detail, edit
-    │   ├── friends/            search, requests, friends, load more
-    │   ├── leaderboard/        the friend ranking
-    │   └── profile/            personal overview
-    ├── context/AuthContext.jsx the signed-in user
-    ├── hooks/                  useTimer, useTimerShortcuts,
-    │                           useFocusWindowBridge, usePaginatedList
-    ├── pages/                  Home, History, Friends, Profile, Login,
-    │                           Register, VerifyEmail, ForgotPassword,
-    │                           ResetPassword, FocusWindow
-    ├── services/               one file per API area
-    └── utils/                  time, date and session formatting
-
-backend/
-├── config/                 settings and root URLs
-└── apps/
-    ├── accounts/           registration, OTP verification, login,
-    │                       password reset, the current user
-    ├── study/              StudySession, DailyGoal, all study statistics
-    ├── friends/            Friendship and friend requests
-    └── leaderboard/        ranking; no models, it only reads the other two
+```js
+const elapsed = Math.floor((now - state.runningSince) / 1000);
+state.remainingSeconds = Math.max(state.durationSeconds - elapsed, 0);
+if (state.mode === "focus") {
+  state.elapsedFocusSeconds = Math.min(elapsed, state.durationSeconds);
+}
 ```
 
-Local secrets live in `backend/.env` and `frontend/.env`, neither of which is
-committed. Both have a `.env.example` beside them.
+`useTimer` dispatches a tick every **250 ms** — faster than once a second, so the
+display never visibly skips a number when an interval fires late.
 
-## Ports
+### State, and what each action does
 
-Other projects on this machine already use the default ports, so SyntaxTime
-uses its own:
+`features/timer/timerSlice.js` holds one session:
 
-| Service  | URL                     |
-| -------- | ----------------------- |
-| Backend  | http://localhost:8001   |
-| Frontend | http://localhost:5180   |
+| Field | Meaning |
+| --- | --- |
+| `mode` | `"focus"` or `"break"` |
+| `durationSeconds` | the chosen length |
+| `remainingSeconds` | what the clock face shows |
+| `elapsedFocusSeconds` | focused time, written only in focus mode |
+| `isRunning` / `isPaused` / `isCompleted` | which state it is in |
+| `subject` / `topic` | optional; empty strings are valid |
+| `startedAt` | ISO timestamp, the session's identity when saved |
+| `runningSince` | the millisecond point time is measured from |
 
-## Database
+| Action | Behaviour |
+| --- | --- |
+| `setDuration` | sets the length and puts the countdown at its start |
+| `startTimer` | begins; the caller passes `now`, so the reducer stays pure |
+| `tickTimer` | recalculates from `runningSince` |
+| `pauseTimer` | applies elapsed time, then clears `runningSince` so nothing accrues |
+| `resumeTimer` | shifts `runningSince` forward by the pause, so paused seconds are never counted. Refuses unless the timer is actually paused |
+| `resetTimer` | back to the chosen duration; a reset never produces a saved session |
+| `finishTimer` | ends it, early or at zero, keeping `elapsedFocusSeconds` for the save. Does nothing if already completed |
+| `restoreTimer` | brings back a snapshot, always paused |
+| `clearTimer` | back to the initial state; also how a break ends |
 
-SyntaxTime uses **Neon** (hosted PostgreSQL), project `SyntaxTime`. There is no
-local database to install or start.
+Reaching zero dispatches the **same** `finishTimer` action the Finish button
+does, so there is only one way for a session to complete.
 
-Django reads a single `DATABASE_URL` from `backend/.env`. Copy it from the Neon
-console. If `DATABASE_URL` is missing, settings fall back to the `DB_*`
-variables for a local PostgreSQL server instead.
+A saved session clears the timer through `saveStudySession.fulfilled` rather
+than a separate dispatch — the minutes leave the timer and arrive in today's
+total in one state change, so they are never counted in both at once.
 
-Neon gives two connection strings:
+### Why break time is guarded in the reducer
 
-- **`DATABASE_URL`** (direct) - used by Django, which holds a connection open
-  between requests and so does not need the pooler.
-- **`DATABASE_URL_POOLED`** - routed through PgBouncer. Useful for serverless
-  functions that open many short-lived connections. Kept in `.env` for later.
+`elapsedFocusSeconds` is only written when `mode === "focus"`. Guarding it there,
+rather than in every view, is what keeps break minutes out of every total,
+streak and leaderboard in the application.
 
-Apply the schema once:
+### The progress ring fills, it does not drain
 
-```
-cd backend
-venv\Scripts\activate
-python manage.py migrate
-```
-
-## Environment variables
-
-Backend configuration lives in `backend/.env`, which is ignored by Git.
-Copy `backend/.env.example` to `backend/.env` and fill in real values.
-
-| Variable               | Purpose                                  |
-| ---------------------- | ---------------------------------------- |
-| `DJANGO_SECRET_KEY`    | Signs sessions and tokens                |
-| `DJANGO_DEBUG`         | Detailed errors during development       |
-| `DJANGO_ALLOWED_HOSTS` | Hostnames Django will answer to          |
-| `DATABASE_URL`         | Neon connection string                   |
-| `DATABASE_URL_POOLED`  | Neon pooled connection string            |
-| `BREVO_API_KEY`        | Sends the registration verification email |
-| `BREVO_SENDER_EMAIL`   | The verified address the email comes from |
-| `BREVO_SENDER_NAME`    | The name shown as the sender             |
-| `FRONTEND_URL`         | Where password reset links point         |
-
-`FRONTEND_URL` is the React application, not Django: the reset screen lives in
-the frontend. It is `http://localhost:5180` in development and the real domain
-in production, so reset links never send anybody to their own machine.
-
-The Brevo key is a password. It lives in `backend/.env` and nowhere else: it
-is never sent to the React frontend, never put in a URL or an API response,
-and never committed.
-
-## Backend setup
+The clock face answers two different questions on purpose:
 
 ```
-cd backend
-venv\Scripts\activate
-pip install -r requirements.txt
-python manage.py migrate
+   the ring says how much of the session is behind you
+   the numerals say how much time is left
+
+        ╭───────────────╮
+        │  ▓▓▓▓▓▓░░░░░  │   ring:   36% elapsed
+        │    32:18      │   centre: 32:18 remaining
+        │    RUNNING    │
+        ╰───────────────╯
 ```
 
-## Running the backend
-
-```
-cd backend
-venv\Scripts\activate
-python manage.py runserver 8001
+```js
+const progress = Math.min(Math.max(elapsedSeconds / durationSeconds, 0), 1);
+strokeDashoffset = CIRCUMFERENCE * (1 - progress);
 ```
 
-## Frontend setup
+Watching a ring drain is watching something run out, which is the opposite of
+the feeling this application is for. The ring transition matches the 250 ms tick,
+so it creeps rather than stepping.
+
+`FocusClock` holds no timing of its own — it is handed seconds and draws them.
+That is why the same component appears on Home, in the popup, in Focus Mode and
+in the native focus window without those views ever disagreeing.
+
+### Choosing a duration
+
+`DurationPicker` is a dial rather than a row of buttons: the lengths are one
+number that goes up and down, and the value sits where the time will sit once
+the session starts.
+
+| | |
+| --- | --- |
+| Presets | 15, 25, 30, 45, 50, 60, 70, 90, 120 minutes |
+| Default | 25 minutes |
+| Custom range | 1 to 600 minutes |
+| Custom step | 5 minutes per arrow press |
+| Break lengths | 5, 10, 15 minutes (default 5) |
+
+The arrows step along the preset ladder and stop at each end rather than
+wrapping, which would surprise anyone who clicked once too often. A typed length
+is not on the ladder, so the arrows step it by 5 instead of jumping to the
+nearest preset and losing what was typed.
+
+The picker only selects. It never starts, times or saves anything — it calls
+`setDuration`, and once the session is running the control is gone and the clock
+shows the time left instead.
+
+---
+
+## Desktop architecture
+
+### Two windows, one timer
+
+Tauri gives each window its own webview, which means its own React tree and its
+own Redux store. Two stores would be two timers, so only one of them is allowed
+to count.
 
 ```
-cd frontend
-npm install
+      main window                              focus window
+      the whole application                    a compact always-on-top clock
+      the countdown runs here   ── state ──▶   draws what it is sent
+      dispatches Redux actions  ◀ command ──   Pause / Resume / Reset / Finish
 ```
 
-## Running it
+| | Main window | Focus window |
+| --- | --- | --- |
+| Runs the countdown | yes | never |
+| Holds Redux state | yes | no |
+| Calls the API | yes | no |
+| Draws the timer | yes | yes |
+| Sends commands | — | yes |
 
-There are two ways to run SyntaxTime, and both use the same React code.
+`hooks/useFocusWindowBridge.js` sits beside `useTimer` in the main window. It
+broadcasts the timer **once a second** while a session runs, and immediately on
+any change so pausing looks instant. The focus window sends back one of four
+intentions, and the bridge turns each into the same Redux action the main
+window's own buttons dispatch. There is no second implementation of anything.
 
-### As the desktop application
+Three events carry it, in `desktop/desktopEvents.js`:
 
-```
-cd frontend
-npm run desktop
-```
+| Event | Direction | Purpose |
+| --- | --- | --- |
+| `syntaxtime://timer-state` | main → focus | what to draw |
+| `syntaxtime://timer-command` | focus → main | `pause`, `resume`, `reset`, `finish` |
+| `syntaxtime://timer-state-request` | focus → main | a reopened window asking for the state now, rather than waiting up to a second |
 
-This is the real thing. Tauri starts Vite itself, compiles the Rust shell and
-opens the application in its own window - **do not start `npm run dev`
-separately**, or port 5180 will already be taken and Tauri will refuse to
-start. The first run compiles Rust and takes a minute or two; later runs are
-seconds.
-
-The backend still has to be running on port 8001.
-
-### In a browser
-
-```
-cd frontend
-npm run dev
-```
-
-Then open http://localhost:5180. Everything works except the native focus
-window, which falls back to an in-page panel - a web page cannot float above
-other applications, and SyntaxTime does not pretend otherwise.
-
-## The desktop application
+The payload is a plain object of numbers and strings — including `status` and
+`phase`, worked out in the main window. The focus window is told what to draw
+and is never given anything to decide.
 
 ### The focus window
-
-The reason the desktop build exists. Start a session, press **Focus timer** in
-the top bar, and a small window appears in the lower right of the screen and
-**stays above every other application**. Switch to VS Code and it is still
-there.
 
 ```
 ┌──────────────────────────┐
@@ -260,227 +318,568 @@ there.
 └──────────────────────────┘
 ```
 
-- **Always on top**, set in the window configuration and re-asserted every
-  time the window is opened, because Windows can drop the flag.
-- **Resizable**, from 240x210 to 560x720. Everything inside is measured
-  against the window rather than fixed, so the clock, the type and the
-  controls all scale with it. Below 330px tall the subject, topic and daily
-  total drop away; the clock and the controls never do.
-- **Draggable** by its header. The header ignores presses on the close button,
-  because starting a native drag swallows the click that would have closed the
-  window.
-- **Closing it closes a view, never a timer.** The window is hidden rather
-  than destroyed, and that is enforced in Rust, where the operating system's
-  close button is intercepted. Reopen it and it shows the session as it is
-  now.
+- **Always on top**, set in `tauri.conf.json`, re-asserted in Rust at startup and
+  again every time the window is opened, because Windows can drop the flag.
+- **Resizable**, 240×210 to 560×720, opening at 300×360. Everything inside is
+  measured against the window rather than fixed, so the clock, the type and the
+  controls scale with it.
+- **Undecorated and off the taskbar** — an instrument, not a second application.
+- **Draggable** by its header, via `startDragging()`. The header ignores presses
+  on the close button, because starting a native drag swallows the click that
+  would have closed the window.
+- **Positioned** in the lower right of the current monitor, 24 px from the edge,
+  scale-factor aware.
+- **Closing it closes a view, never a timer.** The window is hidden rather than
+  destroyed, enforced in Rust by intercepting `CloseRequested`.
 
-### How the two windows stay in step
+Both windows are **declared** in `tauri.conf.json` rather than created at
+runtime. That means there can only ever be one focus window, and the frontend
+never needs permission to create windows at all.
 
-Tauri gives each window its own webview, which means its own React tree and
-its own Redux store. Two stores would be two timers, so only one of them
-counts:
+The focus window has its **own Vite entry** (`focus-window.html` →
+`src/focusWindow.main.jsx`). The Tauri asset protocol has no single-page
+fallback, so the packaged application needs a real file to load.
 
-| | Main window | Focus window |
-| --- | --- | --- |
-| Runs the countdown | yes | never |
-| Holds Redux state | yes | no |
-| Calls the API | yes | no |
-| Draws the timer | yes | yes |
-| Sends commands | - | yes |
+### The system tray
 
-`hooks/useFocusWindowBridge.js` sits beside `useTimer` in the main window. It
-broadcasts the timer once a second while a session runs, and immediately on
-any change, so pausing looks instant. The focus window sends back one of four
-intentions - pause, resume, reset, finish - and the bridge turns each into the
-same Redux action the main window's own buttons dispatch. There is no second
-implementation of anything.
+Closing the main window does not quit SyntaxTime. Both windows hide instead and
+the application carries on in the notification area — a study timer that stops
+because its window was tidied away is not a study timer.
 
-A focus window that has just been reopened asks for the current state rather
-than waiting up to a second for the next broadcast.
-
-### Living in the notification area
-
-Closing the main window does not quit SyntaxTime. Both windows hide instead,
-and the application carries on in the notification area - a study timer that
-stops because its window was tidied away is not a study timer.
-
-The tray icon has three items and no more:
-
-| | |
+| Tray item | Action |
 | --- | --- |
-| **Open SyntaxTime** | brings the main window back |
-| **Focus timer** | shows the compact window, always on top |
-| **Quit** | the only way out |
+| **Open SyntaxTime** | shows, unminimizes and focuses the main window |
+| **Focus timer** | re-asserts always-on-top, then shows the focus window |
+| **Quit** | `app.exit(0)` |
 
-A left click on the icon just reopens the main window, which is what people
-expect of a tray icon; the menu is on the right button. Quit is deliberately
-the only exit: every window hides rather than closes, so without it the
-application could not be quit at all.
+A left click on the icon just reopens the main window; the menu is on the right
+button. Quit is deliberately the only exit: every window hides rather than
+closes, so without it the application could not be quit at all.
 
 ### Surviving a restart
 
-A session that is running when SyntaxTime closes is written to local storage
-and read back on startup, so closing the application forty minutes into a
-ninety minute session no longer loses the forty minutes.
+`features/timer/timerStorage.js` writes a snapshot to `localStorage` under
+`syntaxtime_active_timer`, refreshed every **5 seconds** while a session runs and
+again on `beforeunload`. Only a running or paused session with real elapsed time
+is kept; anything else clears the snapshot instead.
 
-**A restored session comes back paused**, holding exactly the time it had. It
-is never resumed as though it had been running the whole time the application
-was shut. SyntaxTime cannot tell whether it was closed for two minutes or
-overnight, and counting that gap as study time would feed invented minutes
-into every total, streak and leaderboard that reads from the timer. Restoring
-loses at most a few seconds; resuming blindly could gain hours.
+**A restored session comes back paused**, holding exactly the time it had.
 
-A session is only restored on **the day it began**. Today's total is the
-saved total plus whatever the active session has earned, so a session from
-yesterday would come back and add yesterday's minutes to today - and then move
-to yesterday the moment it was saved, because the record is filed by when the
-session began. A session left unsaved overnight is not restored.
+> The application cannot tell whether it was closed for two minutes or
+> overnight, and counting that gap as study time would feed invented minutes
+> into every total, streak and leaderboard that reads from the timer. Restoring
+> loses at most a few seconds; resuming blindly could gain hours.
 
-The snapshot is refreshed every five seconds while a session runs, and again
-on the way out. Anything malformed, from an older version, from another day,
-or describing a session that could not have happened is thrown away rather
-than restored.
+A session is only restored on **the day it began** — taken from `startedAt`, not
+from when the snapshot was written, because those differ for a session running
+through midnight. A snapshot is discarded if it is malformed, from an older
+version, from another day, or describes a session that could not have happened
+(more time remaining than the session was long, or one never started).
 
-### Being told a session has ended
+### Notifications
 
-A countdown reaching zero in a hidden window tells nobody anything, so
-SyntaxTime sends a native Windows notification when a focus session or a break
-finishes.
+A countdown reaching zero in a hidden window tells nobody anything, so a native
+notification is sent when a focus session or a break finishes.
 
-Three rules shape it:
-
-- **Not while you are looking at it.** The one person who does not need telling
-  is the one already watching the clock, so nothing is sent when the
-  application has focus.
-- **Once per ending.** The completion flag stays true while the completion form
-  is open, so what is remembered is *which* session was announced rather than
-  merely that one was.
+- **Not while you are looking at it.** Nothing is sent when the application has
+  focus (`isFocused()` on the desktop, `document.visibilityState` in a browser).
+- **Once per ending.** `useSessionNotifications` remembers *which* session was
+  announced, keyed on mode, `startedAt` and duration, because the completion
+  flag stays true while the completion form is open.
 - **Never in the way of the timer.** Permission is asked for when a session
-  starts rather than when the application opens, and a refused or unavailable
+  starts, not when the application opens — being asked by something you have not
+  used yet is the surest way to have it refused — and a refused or unavailable
   permission costs a notification and nothing else.
 
-In a browser these are ordinary web notifications, which need the tab to still
-be open. That is weaker, and SyntaxTime does not pretend otherwise.
-
-### Windows and permissions
-
-Both windows are declared in `src-tauri/tauri.conf.json`. Declaring the focus
-window rather than creating it at runtime means there can only ever be one of
-it, and that the frontend never needs permission to create windows at all.
+### Tauri capabilities
 
 `src-tauri/capabilities/default.json` grants only what the two windows use:
-showing, hiding, focusing, positioning, dragging, and sending and receiving
-events. **No filesystem, no shell, no process control, no network
-capability.**
-
-### Building a Windows executable
 
 ```
+core:default
+core:event      listen, unlisten, emit, emit-to
+core:window     show, hide, set-focus, unminimize, is-visible, is-focused,
+                set-always-on-top, set-position, outer-size, scale-factor,
+                current-monitor, primary-monitor, start-dragging
+notification    is-permission-granted, request-permission, notify
+```
+
+**No filesystem, no shell, no process control, no HTTP capability.** This is
+least privilege for what the application actually does, not a claim that the
+desktop shell is beyond attack.
+
+### Desktop versus browser
+
+`desktop/isDesktop.js` checks for `__TAURI_INTERNALS__`. Every desktop-only
+feature checks there first and falls back to something honest.
+
+| | Desktop (Tauri) | Browser |
+| --- | --- | --- |
+| Focus window | native, floats above everything | falls back to an in-page panel |
+| Always on top | yes | not possible for a web page |
+| System tray | yes | no |
+| Notifications | native Windows notifications | web notifications, need the tab open |
+| Restart recovery | yes | yes (same `localStorage`) |
+| Everything else | identical | identical |
+
+---
+
+## User flows
+
+**New user**
+
+```
+Register  →  PendingRegistration + 6-digit code emailed
+          →  /verify-email  →  User created  →  Login  →  Home
+```
+
+**A study session**
+
+```
+Home
+ └─ Get ready to focus
+     ├─ duration      (required — the one thing that must be chosen)
+     ├─ subject       (optional)
+     ├─ topic         (optional)
+     └─ break length  (optional, offered again afterwards)
+ └─ Start focus
+     └─ Running ── Pause / Resume / Reset / Finish ──┐
+                                                     │
+ └─ Session complete  ◀───── reaches zero, or Finish ┘
+     ├─ subject / topic / notes  (all optional)
+     └─ Save
+ └─ Take a break?  →  5 / 10 / 15 min, or skip
+ └─ Ready for the next session
+```
+
+**Account recovery**
+
+```
+Login  →  Forgot password?  →  email  →  signed link emailed
+       →  /reset-password/:uid/:token  →  new password  →  Login
+```
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Desktop shell | Tauri 2, Rust (edition 2021, `rust-version` 1.77.2) |
+| Frontend | React 19, Vite 8, JavaScript |
+| State | Redux Toolkit 2 (`timer`, `ui`, `statistics`) + React Context (auth) |
+| Routing | React Router 7 |
+| Styling | Tailwind CSS 4, via `@tailwindcss/vite` |
+| Charts | Recharts 3 |
+| Icons | Lucide React |
+| HTTP | Axios, with a JWT request interceptor and a refresh-on-401 response interceptor |
+| Linting | oxlint |
+| Backend | Django 6.1, Django REST Framework 3.18 |
+| Auth | `djangorestframework-simplejwt` 5.5 |
+| Database | Neon (hosted PostgreSQL), via `psycopg` 3 and `dj-database-url` |
+| Transactional email | Brevo, over its HTTP API using `requests` |
+
+Application version is **0.1.0** (`tauri.conf.json` and `Cargo.toml`). The
+frontend `package.json` is private and unversioned.
+
+---
+
+## Project structure
+
+```
+SyntaxTime/
+├── frontend/
+│   ├── index.html              the main window's page
+│   ├── focus-window.html       the focus window's page — a second Vite entry
+│   ├── vite.config.js          two entries, port 5180, src-tauri watch exclusion
+│   ├── src-tauri/              the desktop shell
+│   │   ├── src/main.rs         windows, tray, close interception. No study logic
+│   │   ├── tauri.conf.json     both windows, their sizes, always-on-top, NSIS
+│   │   ├── capabilities/       what the windows may do: windows and events only
+│   │   └── icons/              generated from icons/source.svg
+│   └── src/
+│       ├── app/store.js        the Redux store
+│       ├── features/           Redux slices and the state they own
+│       │   ├── timer/          slice, derived status helpers, restart snapshot
+│       │   ├── statistics/     saved study data shared across pages
+│       │   └── ui/             popup and focus-mode visibility
+│       ├── desktop/            everything that only exists on the desktop
+│       │   ├── isDesktop.js      Tauri present, or an ordinary browser?
+│       │   ├── focusWindow.js    showing, hiding and placing the focus window
+│       │   ├── desktopEvents.js  the state and command channel between windows
+│       │   └── notifications.js  permission and sending, desktop or browser
+│       ├── components/
+│       │   ├── ui/             Button, Section, PageHeader, Empty/LoadingState
+│       │   ├── layout/         shell, sidebar, top bar, error boundary
+│       │   ├── auth/           PasswordInput, ProtectedRoute
+│       │   ├── timer/          clock, setup, duration picker, controls,
+│       │   │                   completion, break, popup, focus mode
+│       │   ├── dashboard/      Home sections
+│       │   ├── history/        month navigator, summary, list, detail, edit
+│       │   ├── friends/        search, requests, friends, load more
+│       │   ├── leaderboard/    the friend ranking
+│       │   └── profile/        personal overview
+│       ├── context/            AuthContext.jsx, useAuth.js
+│       ├── hooks/              useTimer, useTimerShortcuts, useTimerPersistence,
+│       │                       useFocusWindowBridge, useSessionNotifications,
+│       │                       usePaginatedList
+│       ├── pages/              Home, History, Friends, Profile, Login, Register,
+│       │                       VerifyEmail, ForgotPassword, ResetPassword,
+│       │                       FocusWindow
+│       ├── services/           one file per API area
+│       └── utils/              time, date, history filters, session payloads
+│
+└── backend/
+    ├── manage.py
+    ├── config/                 settings, root URLs, WSGI/ASGI
+    └── apps/
+        ├── accounts/           registration, OTP verification, login,
+        │                       password reset, the current user
+        ├── study/              StudySession, DailyGoal, all study statistics
+        ├── friends/            Friendship and friend requests
+        └── leaderboard/        ranking; no models.py, it only reads the other two
+```
+
+**What each area is for**
+
+| Directory | Role |
+| --- | --- |
+| `src/features/` | Shared state owned by Redux slices. If only one component needs it, it does not belong here. |
+| `src/services/` | Every HTTP call, one function per endpoint, grouped by domain. Components never call axios directly. |
+| `src/desktop/` | Tauri-only helpers. Each checks `isDesktopApp()` and no-ops in a browser. |
+| `src/hooks/` | Behaviour mounted once in `AppShell`: the countdown, the window bridge, persistence, notifications, shortcuts. |
+| `src/utils/` | Pure formatting and payload-building, shared so eight screens cannot word the same thing differently. |
+| `apps/study/services.py` | The statistics definitions — streaks, study days, subject totals — so views stay thin and the dashboard and profile always agree. |
+| `apps/leaderboard/` | No models and no migrations. A ranking is a question asked of `Friendship` and `StudySession`, not a fact worth storing. |
+
+---
+
+## Getting started
+
+### Prerequisites
+
+| | Why |
+| --- | --- |
+| **Node.js** | the frontend and the Tauri CLI |
+| **Python** | the Django backend |
+| **Rust toolchain** | only for the desktop build. `Cargo.toml` sets `rust-version = "1.77.2"` as the minimum |
+| **Microsoft Visual Studio C++ Build Tools** | Tauri links against the MSVC toolchain on Windows |
+| **WebView2** | the runtime Tauri renders in. Present on current Windows 11 |
+| **A Neon database** | or any PostgreSQL server |
+| **A Brevo account** | optional in development — see [Email verification](#email-verification) |
+
+Beyond the Rust minimum above, no exact toolchain versions are pinned by this
+repository. Follow the
+[Tauri prerequisites guide](https://tauri.app/start/prerequisites/) for the
+Windows setup.
+
+### Clone
+
+```bash
+git clone https://github.com/nandagopan006/SyntaxTime.git
+cd SyntaxTime
+```
+
+### Backend
+
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+python manage.py migrate
+```
+
+Fill in `backend/.env` before migrating — it needs a database to connect to.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+copy .env.example .env
+```
+
+---
+
+## Environment variables
+
+Both `.env` files are ignored by Git. Each has a `.env.example` beside it.
+
+### `backend/.env`
+
+| Variable | Purpose |
+| --- | --- |
+| `DJANGO_SECRET_KEY` | Signs sessions and password reset tokens |
+| `DJANGO_DEBUG` | Detailed errors during development |
+| `DJANGO_ALLOWED_HOSTS` | Hostnames Django will answer to |
+| `DATABASE_URL` | Neon connection string (direct) |
+| `DATABASE_URL_POOLED` | Neon pooled connection string, kept for later |
+| `BREVO_API_KEY` | Sends verification and password reset email |
+| `BREVO_SENDER_EMAIL` | The verified address the email comes from |
+| `BREVO_SENDER_NAME` | The name shown as the sender |
+| `FRONTEND_URL` | Where password reset links point |
+
+If `DATABASE_URL` is unset, settings fall back to `DB_NAME`, `DB_USER`,
+`DB_PASSWORD`, `DB_HOST` and `DB_PORT` for a local PostgreSQL server.
+
+`FRONTEND_URL` is the React application, not Django: the reset screen lives in
+the frontend. It is `http://localhost:5180` in development and the real domain
+in production, so reset links never send anybody to their own machine.
+
+### `frontend/.env`
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_API_BASE_URL` | The API root, e.g. `http://localhost:8001/api` |
+
+> **`VITE_API_BASE_URL` is read by Vite at build time and compiled into the
+> bundle.** It is not read when the application runs. See
+> [Deployment](#deployment).
+
+### Database
+
+SyntaxTime uses **Neon**, hosted PostgreSQL, so there is nothing local to
+install or start. Neon offers two connection strings: the **direct** one, used
+by Django because it holds a connection open between requests, and the
+**pooled** one through PgBouncer, useful for serverless functions that open many
+short-lived connections.
+
+```bash
+cd backend
+venv\Scripts\activate
+python manage.py migrate
+```
+
+There is no separate development database configured — the same `DATABASE_URL`
+is used wherever the backend runs. Tests create and destroy their own `test_`
+database automatically.
+
+---
+
+## Running it
+
+Other projects on this machine already use the default ports, so SyntaxTime uses
+its own. `strictPort` is set, so Vite fails rather than quietly switching.
+
+| Service | URL |
+| --- | --- |
+| Backend | `http://localhost:8001` |
+| Frontend | `http://localhost:5180` |
+
+### The backend
+
+```bash
+cd backend
+venv\Scripts\activate
+python manage.py runserver 8001
+```
+
+### The desktop application
+
+```bash
+cd frontend
+npm run desktop
+```
+
+This is the real thing. Tauri starts Vite itself, compiles the Rust shell and
+opens the application in its own window — **do not run `npm run dev` separately**,
+or port 5180 will already be taken and Tauri will refuse to start. The first run
+compiles Rust and takes a minute or two; later runs are seconds.
+
+The backend still has to be running on port 8001.
+
+### In a browser
+
+```bash
+cd frontend
+npm run dev
+```
+
+Then open `http://localhost:5180`. Everything works except the native focus
+window, the tray and always-on-top behaviour — see
+[Desktop versus browser](#desktop-versus-browser).
+
+### All scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Vite dev server on 5180 |
+| `npm run build` | production build of both entries |
+| `npm run preview` | serve the production build |
+| `npm run lint` | oxlint |
+| `npm run desktop` | `tauri dev` — the desktop application |
+| `npm run desktop:build` | `tauri build` — the Windows executable and installer |
+| `npm run tauri` | the raw Tauri CLI |
+
+---
+
+## Building for Windows
+
+```bash
 cd frontend
 npm run desktop:build
 ```
 
-This produces two things under `frontend/src-tauri/target/release/`:
+The bundle target is **NSIS**, producing two things under
+`frontend/src-tauri/target/release/`:
 
 | File | What it is |
 | --- | --- |
-| `syntaxtime.exe` | The application itself, about 9 MB |
-| `bundle/nsis/SyntaxTime_0.1.0_x64-setup.exe` | A Windows installer, about 2 MB |
+| `syntaxtime.exe` | the application itself |
+| `bundle/nsis/SyntaxTime_0.1.0_x64-setup.exe` | a Windows installer |
 
 The first build downloads the NSIS toolchain, so it takes longer than later
-ones. The whole Rust build directory is large and is not committed.
+ones. The Rust `target/` directory is large and is not committed.
 
-The installed application still needs the Django backend running on port
-8001; SyntaxTime is a desktop client for its own API, not a self-contained
-program.
+The installer needs nothing else present — no Node, no Python, no Rust — but the
+installed application still needs the Django backend reachable at whatever
+address it was **built** with. SyntaxTime is a desktop client for its own API,
+not a self-contained program.
 
-## Registration and email verification
+Windows will show a **"Windows protected your PC"** warning, because the
+installer is not code-signed. *More info → Run anyway* gets past it. Removing
+the warning needs a paid signing certificate.
 
-Creating an account takes two steps, because an address nobody can receive
-mail at is not an account anybody can recover.
+---
 
-### Flow
+## Authentication
 
-1. The register form posts to `POST /api/auth/register/`.
-2. Django validates the details and stores them in `PendingRegistration`:
-   the password hashed, plus a hash of a freshly generated six-digit code.
-   **No `User` row exists at this point.**
-3. Brevo emails the code to the address given.
-4. The visitor types the code on `/verify-email`, which posts to
-   `POST /api/auth/verify-email/`.
-5. If the code matches, Django creates the `User` and deletes the pending
-   row, in one transaction. The visitor is sent to `/login` to sign in.
+```
+React  ──JWT in the Authorization header──▶  Django REST API
+```
 
-`POST /api/auth/resend-otp/` sends a new code, replacing the old one. It is
-refused for 60 seconds after the previous send.
+Every API endpoint requires an authenticated user unless it explicitly says
+otherwise. Tokens are held in `localStorage`; `services/api.js` attaches the
+access token on every request and, on a `401`, tries the refresh token once and
+replays the original request. Failing that, a registered handler signs the user
+out rather than leaving the interface in a broken half-signed-in state. The
+login, register and refresh endpoints are excluded from that path — a `401` there
+is a failed attempt, not an expired session.
 
-### What the rules are
+| | Lifetime |
+| --- | --- |
+| Access token | 30 minutes |
+| Refresh token | 7 days |
 
-| Rule                        | Value                                   |
-| --------------------------- | --------------------------------------- |
-| Code length                 | 6 digits                                |
-| Code lifetime               | 10 minutes                              |
-| Wrong attempts allowed      | 5, after which the code is dead         |
-| Resend cooldown             | 60 seconds                              |
-| Pending registration expiry | 30 minutes                              |
-| Register requests           | 10 per hour                             |
-| Verify and resend requests  | 20 per hour                             |
+Passwords go through Django's own validators — user-attribute similarity,
+minimum length, common-password and numeric checks — and are stored hashed by
+`set_password` / `make_password`, never in plaintext.
 
-The raw code is never stored, never returned by the API and never logged.
-Only its hash is kept, and only long enough to check one answer against it.
+Authentication state lives in `AuthContext`, deliberately **not** in Redux. A
+second copy in the store would be one more place for "is somebody signed in" to
+be wrong.
 
-### Setting up Brevo
+`components/auth/PasswordInput.jsx` is the one password field used by the login,
+register and reset screens, with a show/hide toggle, so the same behaviour and
+labelling appear everywhere rather than being rebuilt three times.
 
-1. Create a free account at https://www.brevo.com.
-2. Verify a sender address under **Senders, Domains & Dedicated IPs**. Mail
-   sent from an unverified address is rejected.
-3. Create an API key under **SMTP & API > API Keys**.
-4. Put both in `backend/.env`:
+---
 
-   ```
-   BREVO_API_KEY=the_key_from_brevo
-   BREVO_SENDER_EMAIL=the_address_you_verified
-   BREVO_SENDER_NAME=SyntaxTime
-   ```
+## Email verification
 
-5. Restart Django. Settings are read once at startup.
+An address nobody can receive mail at is not an account anybody can recover, so
+creating an account takes two steps.
 
-### Local development without a key
+```
+Register form
+    │  POST /api/auth/register/
+    ▼
+PendingRegistration          password hashed, OTP hashed
+    │                        ── no User row exists yet ──
+    ▼
+Brevo  ──▶  the user's inbox   (6-digit code)
+    │
+    │  POST /api/auth/verify-email/
+    ▼
+User created + PendingRegistration deleted, in one transaction
+    │
+    ▼
+/login
+```
 
-With `BREVO_API_KEY` empty and `DJANGO_DEBUG=True`, nothing is sent. Django
+**The final Django `User` does not exist before successful verification.**
+`PendingRegistration` holds the details in the meantime and is deleted the moment
+the real user is created.
+
+`POST /api/auth/resend-otp/` sends a new code, replacing the old one.
+
+### The rules
+
+| Rule | Value |
+| --- | --- |
+| Code length | 6 digits, from `secrets.randbelow` |
+| Code lifetime | 10 minutes |
+| Wrong attempts allowed | 5, after which the code is dead |
+| Resend cooldown | 60 seconds |
+| Pending registration expiry | 30 minutes |
+| Register requests | 10 per hour |
+| Verify and resend requests | 20 per hour |
+
+The raw code is **never stored, never returned by the API and never logged**.
+Only a hash is kept — `make_password`, the same hasher used for passwords — and
+only long enough to check one answer against it. One live registration per
+address: a second attempt updates the row rather than piling up rows nobody will
+finish.
+
+### Brevo
+
+```
+Django  ──▶  https://api.brevo.com/v3/smtp/email  ──▶  the user's inbox
+```
+
+Never React → Brevo. The API key lives in `backend/.env` and nowhere else: it is
+never sent to the frontend, never put in a URL or an API response, and never
+committed.
+
+**Setting it up**
+
+1. Create an account at [brevo.com](https://www.brevo.com).
+2. Verify a sender address under **Senders, Domains & Dedicated IPs**. Mail from
+   an unverified address is rejected.
+3. Create an API key under **SMTP & API → API Keys**.
+4. Put the key, the verified address and a sender name in `backend/.env`.
+5. Restart Django — settings are read once at startup.
+
+**Local development without a key**
+
+With `BREVO_API_KEY` empty and `DJANGO_DEBUG=True`, nothing is sent: Django
 prints the whole verification email, code included, to the console running
 `runserver`, so the flow can be worked through without an inbox. With
-`DJANGO_DEBUG=False` a missing key is an error instead, so production can
-never silently stop sending.
+`DJANGO_DEBUG=False` a missing key is an error instead, so production can never
+silently stop sending.
+
+---
 
 ## Password reset
 
 Somebody who cannot sign in cannot prove who they are, so the proof is a link
 sent to the address already on the account.
 
-### Flow
-
-1. `Forgot password?` on the sign-in screen leads to `/forgot-password`.
-2. The address is posted to `POST /api/auth/forgot-password/`.
-3. If an account exists for it, Django builds a signed token and Brevo emails
-   a link to `FRONTEND_URL/reset-password/<uid>/<token>/`.
-4. The link opens `/reset-password/:uid/:token` in React.
-5. The new password is posted to `POST /api/auth/reset-password/` with the uid
-   and token from the URL. Django validates the token, applies the same
-   password rules registration uses, and calls `set_password`.
-6. The user is sent to `/login` to sign in with the new password.
+```
+Login  →  Forgot password?  →  POST /api/auth/forgot-password/
+                                   │
+                    Brevo ──▶ FRONTEND_URL/reset-password/<uid>/<token>/
+                                   │
+                    /reset-password/:uid/:token in React
+                                   │
+                        POST /api/auth/reset-password/
+                                   │
+                                 /login
+```
 
 ### The token
 
 Django's `PasswordResetTokenGenerator` signs the user's id, their current
-password hash and a timestamp. Three things follow from that, none of which
-needs a table:
+password hash and a timestamp. Three properties follow, none of which needs a
+table:
 
-| Property     | Why it holds                                              |
-| ------------ | --------------------------------------------------------- |
-| Unguessable  | Signed with `SECRET_KEY`                                  |
-| Expires      | `PASSWORD_RESET_TIMEOUT`, set to 30 minutes               |
-| Used once    | The password hash is part of the token, so changing the password breaks every link built from the old one |
+| Property | Why it holds |
+| --- | --- |
+| Unguessable | signed with `SECRET_KEY` |
+| Expires | `PASSWORD_RESET_TIMEOUT`, set to 30 minutes |
+| Used once | the password hash is part of the token, so changing the password breaks every link built from the old one |
 
 There is no `PasswordResetToken` model and no migration for this feature.
 
@@ -492,72 +891,138 @@ There is no `PasswordResetToken` model and no migration for this feature.
 If an account exists for that email, a password reset link has been sent.
 ```
 
-An address with an account, an address without one, and an address already
-sent a link in the last minute are indistinguishable from outside. A pending
-registration is not an account and never receives a reset link; that flow has
-its own code.
+An address with an account, an address without one, and an address already sent
+a link in the last minute are indistinguishable from outside. A pending
+registration is not an account and never receives a reset link; that flow has its
+own code.
 
 ### Limits
 
-| Rule                          | Value                        |
-| ----------------------------- | ---------------------------- |
-| Link lifetime                 | 30 minutes                   |
-| Resend cooldown, per address  | 60 seconds                   |
-| Forgot-password requests      | 5 per hour                   |
-| Reset-password requests       | 20 per hour                  |
+| Rule | Value |
+| --- | --- |
+| Link lifetime | 30 minutes |
+| Resend cooldown, per address | 60 seconds |
+| Forgot-password requests | 5 per hour |
+| Reset-password requests | 20 per hour |
 
-The resend cooldown is held in Django's cache rather than a table. On the
-default local-memory cache that means it is per process and is forgotten on
-restart, which is enough for one development server; a shared cache would be
-needed before running several workers.
+The resend cooldown is held in Django's cache rather than a table. On the default
+local-memory cache that means per process, forgotten on restart — enough for one
+development server; a shared cache would be needed before running several
+workers.
 
-### Known limitation: existing sessions
+---
 
-SimpleJWT tokens are signed, not stored, and the project does not install the
-token blacklist app. A refresh token issued before a password reset therefore
-keeps working until it expires, up to seven days. Revoking them would mean
-adding token blacklisting, which is a larger change than this feature
-justifies. Access tokens last 30 minutes.
+## Study data model
 
-## Home
+### `StudySession`
 
-Home answers one question: what should I know right now? Today and this week
-only - the long record is in History, the full ranking is in Friends, and the
-lifetime figures are in Profile.
+One finished focus session.
 
-It asks for a fixed, small amount of data however large the account is: the
-recent-sessions list is requested with a limit of five, today's subjects fold
-to the top five, and the leaderboard preview shows three places plus the
-user's own. While a session is running the supporting sections dim slightly
-and lift again when reached for, so a bar chart is not competing with the
-countdown.
+| Field | Type | Notes |
+| --- | --- | --- |
+| `user` | FK → `User` | `related_name="study_sessions"` |
+| `subject` | char(100) | optional, `blank=True`, defaults to `""` |
+| `topic` | char(200) | optional |
+| `notes` | text | optional — what was studied and learned |
+| `planned_minutes` | positive int | the length chosen before starting, minimum 1 |
+| `focused_minutes` | positive int | time actually focused. **Every statistic is built on this field** |
+| `started_at` | datetime | |
+| `completed_at` | datetime, nullable | left empty for a session that never reached an end |
+| `status` | `completed` / `cancelled` | |
+| `created_at` | datetime | |
+
+Ordered `-started_at`, so history shows the most recent first.
+
+`focused_minutes` is usually **lower** than `planned_minutes`: paused time is
+excluded, break time is never counted, and finishing early stops it where it
+stopped. The three are deliberately different numbers.
+
+Subject, topic and notes use `blank=True` with an empty-string default rather
+than `null=True`, so "no subject" has exactly one representation in the database
+instead of two.
+
+### `DailyGoal`
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `user` | FK → `User` | |
+| `date` | date | |
+| `target_minutes` | positive int | |
+
+A `UniqueConstraint` on `(user, date)` means setting a new target updates the
+existing row instead of quietly creating a second, conflicting goal.
+
+### Subject and topic are optional
+
+Only **duration** is required to start a session. A session can be started, run
+and saved with neither a subject nor a topic, and neither blocks anything.
+
+| Missing value | Shown as |
+| --- | --- |
+| No subject | **General Study** |
+| No topic | **No topic added** |
+
+Both labels are defined once in `utils/studySession.js`, because eight screens
+have to say the same thing and hand-written copies drift apart. The same file
+mirrors the database's 100- and 200-character limits, so every form that writes a
+session agrees with Django rather than each one guessing.
+
+### Notes are private
+
+Notes are part of the user's own learning record. They are never included in any
+friends, search or leaderboard response — see
+[Privacy and security](#privacy-and-security).
+
+---
+
+## Home dashboard
+
+Home answers one question: *what should I know right now?* Today and this week
+only. The long record is in History, the full ranking is in Friends, and lifetime
+figures are in Profile.
+
+| Section | What it shows |
+| --- | --- |
+| Focus session | the timer, setup or completion form |
+| Today | focused time, live — the saved total plus what the running session has earned |
+| Daily target | progress against today's goal |
+| This week | focused minutes per day, Monday to Sunday |
+| Subjects today | where today's time went |
+| Recent sessions | the last few saved sessions |
+| Leaderboard preview | the top places, plus your own |
+
+### It costs the same however large the account
+
+| Section | Bound |
+| --- | --- |
+| Recent sessions | requested with `limit=5`, applied by the API |
+| Subjects today | top **5** shown, the rest behind a toggle |
+| Leaderboard preview | **3** places, plus the user's own row if they rank below that |
+| Today / This week | aggregated by Django, not by the browser |
+
+While a session is running the supporting sections dim slightly and lift again
+when reached for, so a bar chart is not competing with the countdown.
+
+---
 
 ## Study history
 
-History is an archive rather than a feed. A user who studies for three years
-should open it as fast as one who started last week, so it is read one month
-at a time.
+History is an archive rather than a feed. A user who has studied for three years
+should open it as fast as one who started last week, so it is read **one month at
+a time**.
 
 ### Navigating
 
 It opens on the current month and moves with the arrows either side of the
 title, or with the month and year selects for longer jumps. The year picker
-offers only the years the user actually studied in, and the next-month arrow
-is disabled on the current month - there is no history in a month that has
-not happened.
+offers only the years the user actually studied in — `archive_start_date` comes
+back from the API for exactly this. The next-month arrow is disabled on the
+current month: there is no history in a month that has not happened.
 
-### Endpoints
+### Filtering
 
-| Method | Path                          | Purpose                          |
-| ------ | ----------------------------- | -------------------------------- |
-| GET    | `/api/study/history/`         | One page of completed sessions   |
-| GET    | `/api/study/history/summary/` | Totals for the same selection    |
-| GET    | `/api/study/sessions/<id>/`   | One session                      |
-| PATCH  | `/api/study/sessions/<id>/`   | Fill in subject, topic or notes  |
-
-Both list and summary take the same parameters - `start_date`, `end_date`,
-`subject`, `search` - and are requested together, so the figures above the
-archive always describe the sessions listed below them.
+Search, subject filter and date range are all sent to the API, never applied in
+the browser to a page of already-fetched results.
 
 ### The month summary
 
@@ -568,16 +1033,16 @@ Focused        Sessions      Study days
 18h 42m        32            18
 ```
 
-Counted by Django, not the browser, so the totals cover the whole month rather
-than the page of it that has been fetched. **Study days are unique calendar
-dates**: three sessions in one evening are one study day. A search or a subject
-filter narrows the totals too, because numbers that do not describe what is on
-screen are worse than no numbers.
+Counted by Django, so the totals cover the whole month rather than the page of it
+that has been fetched. **Study days are unique calendar dates** — three sessions
+in one evening are one study day. A search or subject filter narrows the totals
+too, because numbers that do not describe what is on screen are worse than no
+numbers.
 
 ### Within a month
 
-Sessions are grouped by day, newest first, and each day carries its own count
-and total:
+Sessions are grouped by day, newest first, each day carrying its own count and
+total:
 
 ```
 29 AUGUST ─────────────── 3 sessions · 2h 15m
@@ -585,13 +1050,25 @@ and total:
   React · Hooks                           48m
 ```
 
-Twenty sessions load at a time, with `Load older sessions` for the rest.
+**Twenty sessions per page**, with *Load older sessions* for the rest.
 
-## Friends API
+Opening one shows its full detail, and `PATCH` can fill in subject, topic or
+notes later — a session started without them is not stuck without them. How long
+it ran and when are read-only: those were measured, not typed.
+
+---
+
+## Friends and leaderboard
+
+### Friendship has a lifecycle
+
+```
+search  →  send request  →  pending  →  receiver accepts  →  friends
+```
 
 A `Friendship` row records the connection between two users and how it came
-about. It is a table of its own rather than a field on `User`, because being
-someone's friend has a lifecycle: it is asked for, then answered.
+about. It is its own table rather than a field on `User`, because being someone's
+friend is not a property of an account — it is asked for, then answered.
 
 | Field | Meaning |
 | --- | --- |
@@ -599,67 +1076,40 @@ someone's friend has a lifecycle: it is asked for, then answered.
 | `receiver` | who was asked, and the only one who may answer |
 | `status` | `pending`, `accepted` or `rejected` |
 
-One row covers a pair for good. Accepting changes that row's status; a second
-row is never created, so nobody appears twice in anybody's friends list.
+One row covers a pair for good. Accepting changes that row's status; a second row
+is never created, so nobody appears twice in anybody's friends list. Two database
+constraints enforce it rather than trusting every view:
 
-### Endpoints
-
-All require authentication. The sender of a request is always taken from the
-JWT, never from the request body.
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/friends/` | accepted friendships |
-| `DELETE` | `/api/friends/<id>/` | end a friendship (either person) |
-| `GET` | `/api/friends/search/?search=abh` | find users, with your relationship to each |
-| `GET` | `/api/friends/requests/` | requests waiting for you |
-| `GET` | `/api/friends/requests/?direction=outgoing` | requests you have sent |
-| `POST` | `/api/friends/requests/` | send one, body `{"receiver_id": 15}` |
-| `PATCH` | `/api/friends/requests/<id>/` | answer one, body `{"status": "accepted"}` |
-
-### Flow
-
-    search -> send request -> pending -> receiver accepts -> friends
+- a check constraint, so nobody can befriend themselves;
+- a unique constraint on the **sorted** pair of ids, so A→B and B→A cannot both
+  exist.
 
 Rejecting sets the status to `rejected` and nothing more. It declines one
 request; the pair can ask again later, because a rejection is not a block.
 
+Either person can end an accepted friendship.
+
 ### Scale
 
-Friends, pending requests and search results all grow without limit, so all
-three are paginated: twenty at a time for friends and requests, ten for
-search, each with its own `Load more` and a `Showing 20 of 45` line. The
-leaderboard folds to the top ten with `Show all`, and somebody ranked
-twenty-fifth still gets their own row below the fold - folding may hide
-places, never the user's own.
+| List | Page size |
+| --- | --- |
+| Friends | 20 |
+| Requests (incoming and outgoing) | 20 |
+| User search | 10 |
 
-### Privacy
+Each has its own *Load more* and a `Showing 20 of 45` line. `max_page_size` is
+100, so a caller cannot ask for everything at once.
 
-Friendship shares a username and an id, and nothing else. Study notes, session
-history, subjects, topics and email addresses are never part of any friends
-response. The leaderboard in a later phase needs only aggregate focused
-minutes, so no further access is required.
+The leaderboard folds to the top **10** with *Show all*, and somebody ranked
+twenty-fifth still gets their own row below the fold — folding may hide places,
+never the user's own.
 
-## Leaderboard API
+### The leaderboard is computed, never stored
 
-The leaderboard ranks the signed-in user and their accepted friends by how many
-focused minutes each of them has actually recorded.
-
-**There is no leaderboard table.** A ranking is not a fact worth storing - it is
-a question asked of two things that already exist, `Friendship` and
-`StudySession`. A stored copy would go stale the moment anyone finished a
-session. `apps/leaderboard/` therefore has no `models.py` and no migrations.
-
-### Endpoints
-
-Both require authentication and are read-only.
-
-| Method | Path | Period |
-| --- | --- | --- |
-| `GET` | `/api/leaderboard/weekly/` | the current Monday-to-Sunday week |
-| `GET` | `/api/leaderboard/monthly/` | the current calendar month |
-
-### Response
+**There is no leaderboard table.** A ranking is a question asked of two things
+that already exist, `Friendship` and `StudySession`. A stored copy would go stale
+the moment anyone finished a session. `apps/leaderboard/` has no `models.py` and
+no migrations.
 
 ```json
 {
@@ -673,29 +1123,24 @@ Both require authentication and are read-only.
 }
 ```
 
-### Rules
+Rules:
 
 - Only `status = "completed"` sessions count. Cancelled sessions, break time and
-  a timer still running all contribute nothing.
-- Only `focused_minutes` counts, never the planned length of a session.
-- Only accepted friendships qualify; the list of people is read from the
+  a timer still running contribute nothing.
+- Only `focused_minutes` counts, never the planned length.
+- Only accepted friendships qualify, and the list of people is read from the
   database, never from the request.
 - A friend who studied nothing still appears, at `0`.
 - The signed-in user is always on their own board, however far down.
 - Ties are broken by username, so the same question always gets the same order.
-- An entry carries a rank, an id, a username and a number of minutes. No notes,
-  subjects, timestamps or email addresses leave this endpoint.
 
-## Profile API
+---
 
-The profile is the user's own study history in summary: totals, streaks and
-where the time went. It is private - always the signed-in user, never anybody
-else - and there is no `ProfileStatistics` table, because every figure is
-derived from `StudySession` on request.
+## Profile
 
-| Method | Path |
-| --- | --- |
-| `GET` | `/api/study/profile/` |
+The user's own study history in summary. Always the signed-in user, never
+anybody else, and there is no `ProfileStatistics` table — every figure is derived
+from `StudySession` on request.
 
 ```json
 {
@@ -710,102 +1155,337 @@ derived from `StudySession` on request.
 }
 ```
 
-### What the figures mean
-
-- **total_focused_minutes / total_sessions** — every completed session, ever.
-- **current_streak_days** — consecutive days up to today with at least one
-  completed session. The same function the dashboard uses, so the two always
-  agree.
-- **longest_streak_days** — the best run the user has ever had. Not the same as
-  `total_study_days`: studying on 1 January and again on 1 June is two runs of
-  one day, not a run of two.
-- **total_study_days** — unique calendar dates. Three sessions in one evening
-  are one study day.
-- **most_studied_subject** — the busiest *named* subject. Sessions saved with no
-  subject are time, not a subject, so they are skipped here; their minutes still
-  appear in `subjects` under `""`, which the interface labels General Study.
-
-Cancelled sessions, break minutes and a timer still running contribute to none
-of it. Notes, topics and timestamps never leave this endpoint.
-
-## Development history
-
-What was built, in the order it was built. Taken from the commit history
-rather than a plan, so it says what actually happened.
-
-| # | What it added | Commit |
-| --- | --- | --- |
-| 1 | Project foundation: Vite, Django, Neon | `79fe6ad`, `32041ca` |
-| 2 | Authentication: JWT login, protected routes | `b7cb11b` |
-| 3 | Application shell, sidebar and navigation | `74e185a` |
-| 4 | Redux Toolkit state foundation | `70c0e13` |
-| 5 | Study data models: `StudySession`, `DailyGoal` | `90977c4` |
-| 6 | Study session APIs | `2501390` |
-| 7 | The focus timer | `526ab2c` |
-| 8 | Live daily focus tracking | `d033a67` |
-| 9 | Session completion and the learning record | `e039258` |
-| 10 | The compact in-page timer popup | `08b446a` |
-| 11 | Focus Mode and the break timer | `56d1fc9` |
-| 12 | Home analytics: weekly chart, subjects, recent sessions | `1531f0f` |
-| 13 | Study history and learning memory | `40f37da` |
-| 14 | Friends and friend requests | `ebd3756` |
-| 15 | Weekly and monthly study leaderboard | `3c0a021` |
-| 16 | Profile and personal study overview | `d71fe18` |
-| 17 | Hardening: session recovery, loading, empty and error states | `c98a54a` |
-| 18 | The Neo-classical visual language | `d37f9e4` |
-| 19 | Desktop UX for Windows laptops | `4f6425f` |
-| 20 | Code quality and architecture cleanup | folded into later work |
-| 21 | Email-verified registration with a Brevo OTP | `6238758` |
-| 22 | Forgot password and secure password reset | `6238758` |
-| — | Focus session redesign: clock, setup, duration picker | `f82ff51` |
-
-### Not yet committed
-
-The most recent work is still in the working tree:
-
-- **Application shell scroll fix.** An absolutely positioned element with no
-  positioned ancestor escaped the scroll container and stretched the page,
-  which put a second scrollbar on the window and a band of dead space under
-  the whole application. `main` is now a containing block.
-- **History as a month archive.** Month and year navigation, a summary
-  endpoint, and per-day totals, so a year of study is twelve short pages
-  instead of one endless scroll.
-- **Friends pagination.** Friends, requests and user search all arrive a page
-  at a time, and the leaderboard folds to the top ten.
-- **Home scaling.** Today's subjects fold to the top five, and the supporting
-  sections step back while a session runs.
-- **Phase 23: the Windows desktop application.** Tauri 2, and the native
-  always-on-top focus window.
-
-## Not implemented yet
-
-Deliberately absent:
-
-- **Change password from Profile** - password *reset* exists; changing a known
-  password while signed in does not.
-- **Offline use** - every page needs the API.
-
-## Known limitations
-
-Honest gaps rather than absent features. Each one is a deliberate stopping
-point, not an oversight:
-
-| Limitation | Why it stands |
+| Figure | Definition |
 | --- | --- |
-| A session finished but not yet recorded is lost on restart | Only running and paused sessions are remembered; the completion form is not. |
-| Signing in elsewhere survives a password reset | SimpleJWT tokens are signed, not stored, and the blacklist app is not installed. Access tokens last 30 minutes, refresh tokens 7 days. |
-| History search covers the selected month only | Finding a note from six months ago means navigating to that month. |
-| The leaderboard fetches every entry to preview three | Bounded by friend count; fine to a few hundred. |
-| The resend cooldown lives in the default local-memory cache | Per process, forgotten on restart. A shared cache is needed before running several workers. |
+| `total_focused_minutes` / `total_sessions` | every completed session, ever |
+| `current_streak_days` | consecutive days up to today with at least one completed session — the same function the dashboard uses, so the two always agree |
+| `longest_streak_days` | the best run ever. Not the same as `total_study_days`: studying on 1 January and again on 1 June is two runs of one day, not a run of two |
+| `total_study_days` | unique calendar dates. Three sessions in one evening are one study day |
+| `average_session_minutes` | mean focused minutes per completed session |
+| `most_studied_subject` | the busiest *named* subject. Sessions saved with no subject are time, not a subject, so they are skipped here; their minutes still appear in `subjects` under `""`, which the interface labels General Study |
 
-## Tests
+Cancelled sessions, break minutes and a running timer contribute to none of it.
+
+---
+
+## API reference
+
+Base path `/api/`. Everything requires a JWT unless marked **public**.
+
+### Authentication — `/api/auth/`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `register/` | **public** — start a registration, email a code |
+| `POST` | `verify-email/` | **public** — check the code, create the `User` |
+| `POST` | `resend-otp/` | **public** — send a fresh code |
+| `POST` | `forgot-password/` | **public** — email a reset link |
+| `POST` | `reset-password/` | **public** — set a new password from uid + token |
+| `POST` | `login/` | **public** — exchange credentials for tokens |
+| `POST` | `refresh/` | **public** — a new access token |
+| `GET` | `me/` | the signed-in user (`id`, `username`, `email`) |
+
+### Study — `/api/study/` and `/api/goals/`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` `POST` | `/api/study/sessions/` | list sessions; save a finished one |
+| `GET` `PATCH` | `/api/study/sessions/<id>/` | one session; fill in subject, topic or notes |
+| `GET` | `/api/study/history/` | one page of completed history |
+| `GET` | `/api/study/history/summary/` | totals for the same selection |
+| `GET` | `/api/study/statistics/` | today's saved totals |
+| `GET` | `/api/study/statistics/weekly/` | focused minutes per day, Mon–Sun |
+| `GET` | `/api/study/subjects/` | every subject the user has studied |
+| `GET` | `/api/study/profile/` | lifetime totals, streaks, subject breakdown |
+| `GET` `PUT` | `/api/goals/today/` | read and set today's target |
+
+`history/` and `history/summary/` take the same parameters — `start_date`,
+`end_date`, `subject`, `search` — and are requested together, so the figures
+above the archive always describe the sessions listed below them.
+
+### Friends — `/api/friends/`
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/friends/` | accepted friendships |
+| `DELETE` | `/api/friends/<id>/` | end a friendship (either person) |
+| `GET` | `/api/friends/search/?search=abh` | find users, with your relationship to each |
+| `GET` | `/api/friends/requests/` | requests waiting for you |
+| `GET` | `/api/friends/requests/?direction=outgoing` | requests you have sent |
+| `POST` | `/api/friends/requests/` | send one — `{"receiver_id": 15}` |
+| `PATCH` | `/api/friends/requests/<id>/` | answer one — `{"status": "accepted"}` |
+
+The sender of a request is always taken from the JWT, never from the body.
+
+### Leaderboard — `/api/leaderboard/`
+
+| Method | Path | Period |
+| --- | --- | --- |
+| `GET` | `weekly/` | the current Monday-to-Sunday week |
+| `GET` | `monthly/` | the current calendar month |
+
+---
+
+## Privacy and security
+
+### What is protected, and how
+
+| Practice | Where |
+| --- | --- |
+| Secrets in `.env`, never committed | `.gitignore` covers `.env` and `.env.*`, keeping only `.env.example` |
+| The Brevo API key is backend-only | read from settings in `apps/accounts/services.py`; never sent to the frontend, a URL, or a response |
+| Passwords hashed | Django's `make_password` / `set_password`, plus the four standard validators |
+| The OTP is hashed | `make_password` on the code; the raw code is never stored, returned or logged |
+| No `User` before verification | `PendingRegistration` holds it; creation and deletion happen in one transaction |
+| Reset tokens signed, expiring, single-use | `PasswordResetTokenGenerator` with `PASSWORD_RESET_TIMEOUT` |
+| Rate limits on every open endpoint | DRF `ScopedRateThrottle` — 10/h register, 20/h verify, 5/h forgot-password, 20/h reset |
+| Ownership enforced server-side | every study query is scoped to `request.user`; the JWT is the only source of identity |
+| Enumeration resistance | forgot-password always answers the same way |
+| Least-privilege desktop shell | windows, events and notifications only — no filesystem, shell, process or HTTP capability |
+| Nothing sensitive logged | the OTP, passwords and the API key are never written to logs |
+
+### The privacy model
+
+A user can read their own study records, and nothing else.
+
+Friendship shares a **username and an id**. `PublicUserSerializer` exposes
+`("id", "username")`; search adds a `relationship` field, and the friend and
+request serializers add `status` and `created_at`. The leaderboard adds one
+number: aggregate `focused_minutes`.
+
+Never part of any friends, search or leaderboard response:
+
+- study notes
+- session history, subjects or topics
+- email addresses
+- timestamps of individual sessions
+
+### A note on scope
+
+This is a personal project. The protections above are real and tested, but the
+application has not had a security review, the installer is unsigned, and it has
+not been run in production. "Least privilege" describes an intent that is
+verifiable in `capabilities/default.json`; it is not a claim that the desktop
+shell is beyond attack.
+
+---
+
+## Scalability principles
+
+The question each of these answers: *what happens after three years of daily
+study?*
+
+1. **Home is bounded.** Recent sessions `limit=5`, subjects folded to 5,
+   leaderboard preview 3, totals aggregated by the database. Home costs the same
+   on day one and in year three.
+2. **History is read one month at a time**, 20 sessions per page, filters applied
+   by the API.
+3. **Friends, requests and search are paginated** — 20, 20 and 10, capped at 100.
+4. **The leaderboard is derived, never stored**, so there is no ranking table to
+   go stale.
+5. **Statistics are computed on request** from `StudySession` — streaks, study
+   days and subject totals have no precomputed copies to drift.
+6. **The interface never renders thousands of rows.** Every list either
+   paginates or folds.
+
+Where indexes matter, they exist: `Friendship` is indexed on
+`(receiver, status)` and `(sender, status)`, which are exactly the two questions
+the friends pages ask.
+
+---
+
+## Deployment
+
+**SyntaxTime is not deployed.** It currently talks to a Django server on
+`localhost`, which means it runs for whoever is sitting at the machine running
+it.
+
+### Why a friend cannot use it today
+
+On another person's machine `localhost` is **their** computer, where no
+SyntaxTime backend is running.
 
 ```
+you       ──▶  localhost:8001  ──▶  Neon  ✓
+a friend  ──▶  localhost:8001  ──▶  nothing  ✗
+```
+
+The database is already in the cloud. The server is not.
+
+### The build order matters
+
+`VITE_API_BASE_URL` is compiled into the bundle at build time, so a packaged
+installer points at whatever address it was built with, permanently.
+
+```
+1. Deploy Django to a public address
+2. Set VITE_API_BASE_URL to it in frontend/.env
+3. THEN run npm run desktop:build
+4. Share that installer
+```
+
+Building before deploying ships an application permanently pointed at the user's
+own machine.
+
+### What deployment needs
+
+| Where | Change |
+| --- | --- |
+| Host | Django somewhere public, over HTTPS |
+| `backend/.env` | `DJANGO_DEBUG=False` |
+| `backend/.env` | a fresh `DJANGO_SECRET_KEY`, never the development one |
+| `backend/.env` | `DJANGO_ALLOWED_HOSTS=your-api-domain` |
+| `backend/.env` | `FRONTEND_URL=https://your-web-domain` for reset links |
+| `backend/.env` | a real `BREVO_API_KEY` — with `DEBUG=False` a missing key is an error |
+| `settings.py` | add the web frontend's origin to `CORS_ALLOWED_ORIGINS` |
+| `frontend/.env` | `VITE_API_BASE_URL=https://your-api-domain/api` |
+
+The Neon database needs no change: it is already hosted and the same
+`DATABASE_URL` works from anywhere.
+
+`CORS_ALLOWED_ORIGINS` already covers the installed desktop application — Tauri
+serves the packaged build over its own protocol, which the browser treats as a
+different origin (`http://tauri.localhost` on Windows, `tauri://localhost`
+elsewhere).
+
+### On the same network, without deploying
+
+For trying it with somebody in the same room:
+
+```bash
+python manage.py runserver 0.0.0.0:8001
+```
+
+Build the installer against your machine's LAN address, and add that address to
+`DJANGO_ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`.
+
+This is a demonstration, not a deployment. It needs your machine awake and both
+of you on the same network, and it breaks when the router hands out a different
+address.
+
+### What to watch as more people join
+
+- **Brevo's free tier caps daily email**, and every registration and password
+  reset sends one.
+- **The resend cooldown lives in local-memory cache**, so it is per process and
+  stops being reliable the moment more than one worker runs.
+- **Signing in elsewhere survives a password reset**, for up to the seven-day
+  life of a refresh token.
+
+None of these matter for a handful of friends. All three want attention before
+strangers use it.
+
+---
+
+## Testing
+
+```bash
 cd backend
 venv\Scripts\activate
 python manage.py test
 ```
 
-266 backend tests cover the study, accounts, friends and leaderboard apps:
-ownership on every endpoint, the OTP and password-reset rules, the statistics
-definitions, and that break minutes never reach a study total.
+**277 tests** across the four Django apps:
+
+| App | Tests |
+| --- | --- |
+| `study` | 119 |
+| `accounts` | 62 |
+| `friends` | 58 |
+| `leaderboard` | 38 |
+
+They cover ownership on every endpoint, the OTP and password-reset rules, the
+statistics definitions, pagination, and that break minutes never reach a study
+total.
+
+> **There is no automated frontend test suite in this repository.** The frontend
+> is checked with `npm run lint` (oxlint) and `npm run build`. Frontend behaviour
+> has been verified manually and with throwaway harnesses that were not
+> committed.
+
+---
+
+## Project status
+
+A personal project, feature-complete for its own purpose and not deployed.
+
+### Implemented
+
+Focus sessions with configurable duration and optional subject and topic ·
+pause, resume, reset, finish · session completion with optional notes · break
+timer · daily goals · live daily tracking · weekly and subject analytics ·
+month-based study history with search, filters and editing · friends and friend
+requests · weekly and monthly leaderboards · profile statistics · email-verified
+registration · password reset · the Tauri desktop application · the always-on-top
+focus window · system tray · restart recovery · Windows notifications.
+
+### Not implemented
+
+| | |
+| --- | --- |
+| **Change password while signed in** | password *reset* exists; changing a known password from Profile does not |
+| **Offline use** | every page needs the API |
+| **Deployment** | see [Deployment](#deployment) |
+| **Frontend test suite** | see [Testing](#testing) |
+| **macOS and Linux builds** | only the Windows NSIS bundle is configured |
+| **Code signing** | the installer is unsigned |
+
+---
+
+## Known limitations
+
+Honest gaps rather than absent features. Each is a deliberate stopping point.
+
+| Limitation | Why it stands |
+| --- | --- |
+| A session finished but not yet recorded is lost on restart | Only running and paused sessions are snapshotted; the completion form is not |
+| A session left running overnight is not restored | Deliberate — restoring it would add yesterday's minutes to today |
+| Signing in elsewhere survives a password reset | SimpleJWT tokens are signed, not stored, and the blacklist app is not installed. Adding it is a larger change than this feature justifies |
+| History search covers the selected month only | Finding a note from six months ago means navigating to that month |
+| The leaderboard fetches every entry to preview three | Bounded by friend count; fine to a few hundred |
+| The resend cooldown lives in the default local-memory cache | Per process, forgotten on restart. A shared cache is needed before running several workers |
+| The installer is unsigned | Windows SmartScreen warns on first run |
+
+---
+
+## Development guidelines
+
+The project is meant to stay readable. It is not built to impress anybody with
+its architecture.
+
+- **Keep components focused.** A component that fetches and renders and decides
+  is three components.
+- **Reuse the existing services.** Every HTTP call goes through `src/services/`;
+  components never call axios directly.
+- **Keep business rules in the backend.** Ownership, validation and every
+  statistic definition live in Django, so the frontend cannot disagree with the
+  database.
+- **Redux is for shared state only.** If one component needs it, `useState` is
+  the right answer. Auth is in Context, not the store.
+- **Never add a second timer.** Anything that needs the countdown reads
+  `state.timer` or receives it over the desktop bridge.
+- **Keep desktop permissions minimal.** Adding a capability to
+  `capabilities/default.json` should need a reason written down.
+- **Explain *why* in comments, not *what*.** The code already says what it does.
+
+### Working on it
+
+```bash
+git checkout -b feat/your-change
+# ...
+cd frontend
+npm run lint
+npm run build
+cd ../backend
+venv\Scripts\activate
+python manage.py test
+```
+
+---
+
+## Repository
+
+<https://github.com/nandagopan006/SyntaxTime>
+
+No `LICENSE` file is present, so no licence is granted and all rights are
+reserved by default until one is added.
