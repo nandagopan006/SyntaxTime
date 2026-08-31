@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Outlet } from "react-router-dom";
 
-import { FocusCoachProvider } from "../../context/FocusCoachContext";
 import { fetchTodayStatistics } from "../../features/statistics/statisticsSlice";
 import { useFocusWindowBridge } from "../../hooks/useFocusWindowBridge";
 import { useSessionNotifications } from "../../hooks/useSessionNotifications";
@@ -22,15 +21,7 @@ import TopBar from "./TopBar";
   stay mounted while React Router swaps the page shown in <Outlet />.
 */
 
-/**
- * Everything inside the coach provider.
- *
- * Split out because the shortcut and the focus window bridge both open the
- * coach, and a hook called in the component that *renders* a provider is
- * outside it. Left in AppShell they would quietly fall back to pausing without
- * ever asking, which is the kind of bug that looks like a missing feature.
- */
-function ShellContent() {
+function AppShell() {
   // Driven here, once, so the countdown keeps running while the user moves
   // between pages and no second interval can ever be created.
   useTimer();
@@ -96,18 +87,6 @@ function ShellContent() {
           leaves the running session completely untouched. */}
       {isFocusModeActive && <FocusMode />}
     </div>
-  );
-}
-
-function AppShell() {
-  // Wraps everything, because Pause and Finish are reachable from the page,
-  // the popup, Focus Mode, the spacebar and the native focus window, and all
-  // five must open the same one dialog. The provider is also the only place a
-  // coached pause or finish is dispatched, so no surface can produce a second.
-  return (
-    <FocusCoachProvider>
-      <ShellContent />
-    </FocusCoachProvider>
   );
 }
 

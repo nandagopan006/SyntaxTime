@@ -2,7 +2,6 @@ import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
-import { useFocusCoach } from "../../context/useFocusCoach";
 import {
   fetchRecentSessions,
   fetchWeeklyStatistics,
@@ -12,6 +11,8 @@ import {
 } from "../../features/statistics/statisticsSlice";
 import {
   clearTimer,
+  finishTimer,
+  pauseTimer,
   resetTimer,
   resumeTimer,
   setDuration,
@@ -56,9 +57,6 @@ function FocusTimer() {
   const dispatch = useDispatch();
   const timer = useSelector((state) => state.timer);
   const liveTodaySeconds = useSelector(selectLiveTodayFocusSeconds);
-  // Pausing and finishing ask why first. The coach dispatches the same timer
-  // actions this component used to dispatch directly, once the user decides.
-  const { openPauseCoach, openFinishCoach } = useFocusCoach();
 
   // What should happen after this session. Local, because it is a preference
   // for a session that has not started, and because Redux is wiped the moment
@@ -383,10 +381,10 @@ function FocusTimer() {
           onStart={() =>
             dispatch(startTimer({ startedAt: new Date().toISOString(), now: Date.now() }))
           }
-          onPause={() => openPauseCoach()}
+          onPause={() => dispatch(pauseTimer(Date.now()))}
           onResume={() => dispatch(resumeTimer(Date.now()))}
           onReset={() => dispatch(resetTimer())}
-          onFinish={() => openFinishCoach()}
+          onFinish={() => dispatch(finishTimer(Date.now()))}
         />
         )}
 
