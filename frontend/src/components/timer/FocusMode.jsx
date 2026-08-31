@@ -4,8 +4,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 import { selectLiveTodayFocusSeconds } from "../../features/statistics/statisticsSlice";
-import { useFocusCoach } from "../../context/useFocusCoach";
 import {
+  finishTimer,
+  pauseTimer,
   resetTimer,
   resumeTimer,
 } from "../../features/timer/timerSlice";
@@ -33,9 +34,6 @@ import TimerControls from "./TimerControls";
 */
 function FocusMode() {
   const dispatch = useDispatch();
-  // The same dialog the Home card opens. Focus Mode covers the whole screen,
-  // but it is still only another view of one timer.
-  const { openPauseCoach, openFinishCoach } = useFocusCoach();
   const navigate = useNavigate();
 
   const timer = useSelector((state) => state.timer);
@@ -145,10 +143,10 @@ function FocusMode() {
                   isRunning={timer.isRunning}
                   isPaused={timer.isPaused}
                   canStart={false}
-                  onPause={() => openPauseCoach()}
+                  onPause={() => dispatch(pauseTimer(Date.now()))}
                   onResume={() => dispatch(resumeTimer(Date.now()))}
                   onReset={() => dispatch(resetTimer())}
-                  onFinish={() => openFinishCoach()}
+                  onFinish={() => dispatch(finishTimer(Date.now()))}
                 />
               )}
             </div>
