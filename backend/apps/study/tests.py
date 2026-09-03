@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
 
 from django.contrib.auth.models import User
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from .models import DailyGoal, StudySession
+from .services import get_today_statistics
 
 
 def build_session_payload(**overrides):
@@ -1195,3 +1197,76 @@ class HistorySummaryTests(StudyAPITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get(reverse("history-summary"))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class DuplicateSessionTests(TestCase):
+    """
+    The same finished session sent twice must stay one session.
+
+    A slow save looks exactly like a button that did nothing, so it gets
+    pressed again. Without this, seventy minutes of study became two hundred
+    and eighty in today's total.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user("nandhu", "nandhu@example.com", "pw")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.started_at = timezone.now() - timedelta(minutes=70)
+        self.payload = {
+            "subject": "Python",
+            "topic": "",
+            "notes": "",
+            "planned_minutes": 70,
+            "focused_minutes": 70,
+            "started_at": self.started_at.isoformat(),
+            "completed_at": timezone.now().isoformat(),
+            "status": "completed",
+        }
+
+    def _save(self, **overrides):
+        return self.client.post(
+            reverse("session-list"), {**self.payload, **overrides}, format="json"
+        )
+
+    def test_sending_the_same_session_twice_records_it_once(self):
+        first = self._save()
+        second = self._save()
+
+        self.assertEqual(first.status_code, 201)
+        self.assertIn(second.status_code, (200, 201))
+        self.assertEqual(StudySession.objects.filter(user=self.user).count(), 1)
+
+    def test_four_attempts_do_not_quadruple_the_daily_total(self):
+        for _ in range(4):
+            self._save()
+
+        today = get_today_statistics(self.user)
+        self.assertEqual(today["today_focused_minutes"], 70)
+        self.assertEqual(today["today_sessions_count"], 1)
+
+    def test_a_repeat_can_carry_details_the_first_attempt_lacked(self):
+        """The retry is an update, so nothing typed in the meantime is lost."""
+        self._save()
+        self._save(notes="Learned how decorators work.", topic="Decorators")
+
+        session = StudySession.objects.get(user=self.user)
+        self.assertEqual(session.notes, "Learned how decorators work.")
+        self.assertEqual(session.topic, "Decorators")
+
+    def test_a_genuinely_different_session_is_still_recorded(self):
+        self._save()
+        self._save(started_at=(self.started_at - timedelta(hours=3)).isoformat())
+
+        self.assertEqual(StudySession.objects.filter(user=self.user).count(), 2)
+
+    def test_two_users_may_start_at_the_same_instant(self):
+        other = User.objects.create_user("abhay", "abhay@example.com", "pw")
+        other_client = APIClient()
+        other_client.force_authenticate(user=other)
+
+        self._save()
+        response = other_client.post(reverse("session-list"), self.payload, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(StudySession.objects.count(), 2)

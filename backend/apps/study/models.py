@@ -48,6 +48,17 @@ class StudySession(models.Model):
     class Meta:
         # History shows the most recent session first.
         ordering = ["-started_at"]
+        constraints = [
+            # A session cannot begin twice at the same instant, so this is the
+            # same session arriving again - a retry after a slow save, or a
+            # second click while the first request was still in flight. The
+            # view turns a repeat into an update; this makes a duplicate
+            # impossible even if some future path forgets to.
+            models.UniqueConstraint(
+                fields=["user", "started_at"],
+                name="unique_study_session_per_user_and_start",
+            )
+        ]
 
     def __str__(self):
         studied = self.subject or "General Study"

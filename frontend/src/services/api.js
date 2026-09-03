@@ -3,8 +3,15 @@ import axios from "axios";
 const ACCESS_TOKEN_KEY = "syntaxtime_access_token";
 const REFRESH_TOKEN_KEY = "syntaxtime_refresh_token";
 
+// Long enough for a sleeping free-tier host to wake up, short enough that a
+// request which is never going to arrive eventually says so. Without any
+// timeout a hanging save looks exactly like a button that did nothing, and the
+// natural response is to press it again.
+const REQUEST_TIMEOUT_MS = 90000;
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
+  timeout: REQUEST_TIMEOUT_MS,
   headers: {
     "Content-Type": "application/json",
   },
