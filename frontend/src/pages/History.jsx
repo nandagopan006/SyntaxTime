@@ -5,6 +5,7 @@ import HistoryEmptyState from "../components/history/HistoryEmptyState";
 import HistoryFilters from "../components/history/HistoryFilters";
 import MonthNavigator from "../components/history/MonthNavigator";
 import MonthSummary from "../components/history/MonthSummary";
+import StudyChart from "../components/history/StudyChart";
 import SessionDetails from "../components/history/SessionDetails";
 import StudySessionList from "../components/history/StudySessionList";
 import Button from "../components/ui/Button";
@@ -34,6 +35,9 @@ const SEARCH_DEBOUNCE_MS = 300;
 */
 function History() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  // Held here rather than in the chart, so choosing "weekly" survives moving
+  // to another month - the chart itself is remounted per month.
+  const [chartGrouping, setChartGrouping] = useState("daily");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
@@ -199,6 +203,10 @@ function History() {
   // navigate away from.
   const hasActiveFilters = search !== "" || filters.subject !== "";
 
+  // The chart covers the whole month on screen, so it takes the month's own
+  // dates rather than the search and subject narrowing the list below it.
+  const monthRange = buildHistoryParams({ ...filters, subject: "" }, "");
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -226,6 +234,17 @@ function History() {
         />
 
         <MonthSummary summary={summary} isLoading={status === "loading"} />
+
+        {/* The totals above say how much; this says when. Both describe the
+            same month, so the chart is given the same range the list uses. */}
+        <StudyChart
+          key={monthRange.start_date}
+          startDate={monthRange.start_date}
+          endDate={monthRange.end_date}
+          title={formatMonthLabel(filters)}
+          grouping={chartGrouping}
+          onGroupingChange={setChartGrouping}
+        />
       </div>
 
       <div className="grid gap-8 border-t border-rule pt-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">

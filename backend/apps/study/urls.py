@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    DailyStatisticsView,
     ProfileStatisticsView,
     StudyHistorySummaryView,
     StudySessionDetailView,
@@ -22,6 +23,11 @@ urlpatterns = [
         name="history-summary",
     ),
     path("statistics/", TodayStatisticsView.as_view(), name="study-statistics"),
+    path(
+        "statistics/daily/",
+        DailyStatisticsView.as_view(),
+        name="daily-statistics",
+    ),
     path(
         "statistics/weekly/",
         WeeklyStatisticsView.as_view(),

@@ -1270,3 +1270,105 @@ class DuplicateSessionTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(StudySession.objects.count(), 2)
+
+
+class DailyStatisticsTests(TestCase):
+    """
+    Focused minutes per day across a range, for the history chart.
+
+    Counted here rather than in the browser: history arrives a page at a time,
+    so adding up what is on screen would chart the first twenty sessions and
+    call it the month.
+    """
+
+    def setUp(self):
+        self.url = reverse("daily-statistics")
+        self.user = User.objects.create_user("nandhu", "nandhu@example.com", "pw")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.today = timezone.localdate()
+
+    def _session(self, days_ago, minutes, user=None, status="completed"):
+        started = timezone.now() - timedelta(days=days_ago)
+        return StudySession.objects.create(
+            user=user or self.user,
+            planned_minutes=minutes,
+            focused_minutes=minutes,
+            started_at=started,
+            completed_at=started + timedelta(minutes=minutes),
+            status=status,
+        )
+
+    def _days(self, start_days_ago, end_days_ago=0):
+        response = self.client.get(
+            self.url,
+            {
+                "start_date": (self.today - timedelta(days=start_days_ago)).isoformat(),
+                "end_date": (self.today - timedelta(days=end_days_ago)).isoformat(),
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.data["days"]
+
+    def test_signing_in_is_required(self):
+        response = APIClient().get(self.url, {"start_date": "2026-09-01", "end_date": "2026-09-30"})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_quiet_days_are_returned_as_zero(self):
+        """A gap must be visible as a gap, not compressed out of the chart."""
+        self._session(days_ago=2, minutes=30)
+
+        days = self._days(4)
+
+        self.assertEqual(len(days), 5)
+        self.assertEqual([d["focused_minutes"] for d in days], [0, 0, 30, 0, 0])
+
+    def test_several_sessions_in_one_day_are_added_together(self):
+        self._session(days_ago=1, minutes=25)
+        self._session(days_ago=1, minutes=35)
+
+        days = self._days(1, 1)
+
+        self.assertEqual(len(days), 1)
+        self.assertEqual(days[0]["focused_minutes"], 60)
+
+    def test_cancelled_sessions_are_excluded(self):
+        self._session(days_ago=1, minutes=40, status="cancelled")
+
+        self.assertEqual(self._days(1, 1)[0]["focused_minutes"], 0)
+
+    def test_another_users_study_is_never_counted(self):
+        other = User.objects.create_user("abhay", "abhay@example.com", "pw")
+        self._session(days_ago=1, minutes=90, user=other)
+
+        self.assertEqual(self._days(1, 1)[0]["focused_minutes"], 0)
+
+    def test_missing_dates_are_refused(self):
+        self.assertEqual(self.client.get(self.url).status_code, 400)
+        self.assertEqual(
+            self.client.get(self.url, {"start_date": "2026-09-01"}).status_code, 400
+        )
+
+    def test_a_backwards_range_is_refused(self):
+        response = self.client.get(
+            self.url, {"start_date": "2026-09-30", "end_date": "2026-09-01"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_an_enormous_range_is_refused(self):
+        """One request cannot ask the server to draw a decade of bars."""
+        response = self.client.get(
+            self.url, {"start_date": "2016-01-01", "end_date": "2026-01-01"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_a_whole_year_is_allowed(self):
+        response = self.client.get(
+            self.url, {"start_date": "2026-01-01", "end_date": "2026-12-31"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["days"]), 365)
