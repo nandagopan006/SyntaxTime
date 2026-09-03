@@ -28,6 +28,22 @@ export async function getTodayStatistics() {
   };
 }
 
+/**
+ * Returns focused minutes for each day between two dates, inclusive.
+ *
+ * Counted by the API rather than from the sessions on screen: history arrives
+ * a page at a time, so adding up what the browser holds would chart the first
+ * twenty sessions and label it the month.
+ */
+export async function getDailyStatistics({ start_date, end_date }) {
+  const response = await api.get("/study/statistics/daily/", {
+    params: { start_date, end_date },
+  });
+
+  const days = response.data?.days;
+  return Array.isArray(days) ? days : [];
+}
+
 /** Returns focused minutes for each day of the current week, Monday to Sunday. */
 export async function getWeeklyStatistics() {
   const response = await api.get("/study/statistics/weekly/");

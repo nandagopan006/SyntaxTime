@@ -1,7 +1,8 @@
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from rest_framework import generics
+from django.utils.dateparse import parse_date
+from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,13 +14,27 @@ from .serializers import (
     StudySessionUpdateSerializer,
 )
 from .services import (
+    MAX_CHART_DAYS,
     get_archive_start_date,
+    get_daily_statistics,
     get_profile_statistics,
     get_subject_totals,
     get_today_statistics,
     get_weekly_statistics,
     summarise_sessions,
 )
+
+
+def parse_optional_date(value):
+    """Reads a YYYY-MM-DD query parameter, or None if it is absent or malformed."""
+    if not value:
+        return None
+
+    try:
+        return parse_date(value)
+    except ValueError:
+        # A value shaped like a date but not one, such as 2026-13-45.
+        return None
 
 
 def get_own_sessions(request):
@@ -205,6 +220,47 @@ class WeeklyStatisticsView(APIView):
 
     def get(self, request):
         return Response(get_weekly_statistics(request.user))
+
+
+class DailyStatisticsView(APIView):
+    """
+    Focused minutes per day across a requested range, for the history chart.
+
+    History is browsed a month at a time and its sessions arrive a page at a
+    time, so the browser never holds the whole month. Adding up what is on
+    screen would draw a chart of the first twenty sessions and call it the
+    month, which is why the totals are counted here instead.
+    """
+
+    def get(self, request):
+        # parse_date insists on a string, so a missing parameter has to be
+        # turned away before it reaches it - otherwise a request with no dates
+        # raises rather than being answered with a readable 400.
+        start_date = parse_optional_date(request.query_params.get("start_date"))
+        end_date = parse_optional_date(request.query_params.get("end_date"))
+
+        if start_date is None or end_date is None:
+            return Response(
+                {"detail": "start_date and end_date are required, as YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if end_date < start_date:
+            return Response(
+                {"detail": "end_date cannot be before start_date."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # One request cannot ask for a decade of bars. The chart shows a month
+        # or a week; anything longer is a mistake or an attempt to make the
+        # server do a lot of work for one call.
+        if (end_date - start_date).days + 1 > MAX_CHART_DAYS:
+            return Response(
+                {"detail": f"A range cannot be longer than {MAX_CHART_DAYS} days."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(get_daily_statistics(request.user, start_date, end_date))
 
 
 class SubjectTotalsView(APIView):

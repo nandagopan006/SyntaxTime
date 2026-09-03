@@ -280,6 +280,55 @@ def get_current_month_range():
     return today.replace(day=1), today.replace(day=last_day)
 
 
+# The longest range a chart may ask for. A little over a year, which is enough
+# for any month or week a user can navigate to, and short enough that one
+# request can never try to draw a decade.
+MAX_CHART_DAYS = 366
+
+
+def get_daily_focus_minutes(user, start_date, end_date):
+    """
+    Returns focused minutes for every day between two dates, inclusive.
+
+    Days without study are included with zero, so a chart draws a continuous
+    row of bars and a quiet day shows as a gap rather than vanishing - which
+    would silently compress a sparse week into a busy-looking one.
+
+    The aggregation happens in the database rather than by summing sessions in
+    the browser, so a month with hundreds of sessions costs one query and
+    returns at most thirty-one rows.
+    """
+    # order_by() is required, not decoration: the model orders by started_at by
+    # default, and Django would otherwise add that column to the GROUP BY and
+    # return one row per session instead of one row per day.
+    daily_totals = (
+        get_completed_sessions(user)
+        .filter(started_at__date__gte=start_date, started_at__date__lte=end_date)
+        .annotate(day=TruncDate("started_at"))
+        .values("day")
+        .annotate(focused_minutes=Sum("focused_minutes"))
+        .order_by("day")
+    )
+    minutes_by_date = {row["day"]: row["focused_minutes"] for row in daily_totals}
+
+    days = []
+    date = start_date
+    while date <= end_date:
+        days.append({"date": date, "focused_minutes": minutes_by_date.get(date, 0)})
+        date += timedelta(days=1)
+
+    return days
+
+
+def get_daily_statistics(user, start_date, end_date):
+    """Focused minutes per day across an arbitrary range, for the history chart."""
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "days": get_daily_focus_minutes(user, start_date, end_date),
+    }
+
+
 def get_weekly_statistics(user):
     """
     Returns focused minutes for each day of the current week, Monday to Sunday.
@@ -289,25 +338,11 @@ def get_weekly_statistics(user):
     """
     monday, sunday = get_current_week_range()
 
-    # order_by() is required, not decoration: the model orders by started_at by
-    # default, and Django would otherwise add that column to the GROUP BY and
-    # return one row per session instead of one row per day.
-    daily_totals = (
-        get_completed_sessions(user)
-        .filter(started_at__date__gte=monday, started_at__date__lte=sunday)
-        .annotate(day=TruncDate("started_at"))
-        .values("day")
-        .annotate(focused_minutes=Sum("focused_minutes"))
-        .order_by("day")
-    )
-    minutes_by_date = {row["day"]: row["focused_minutes"] for row in daily_totals}
-
-    days = []
-    for offset in range(7):
-        date = monday + timedelta(days=offset)
-        days.append({"date": date, "focused_minutes": minutes_by_date.get(date, 0)})
-
-    return {"start_date": monday, "end_date": sunday, "days": days}
+    return {
+        "start_date": monday,
+        "end_date": sunday,
+        "days": get_daily_focus_minutes(user, monday, sunday),
+    }
 
 
 def get_subject_totals(user, on_date=None):
