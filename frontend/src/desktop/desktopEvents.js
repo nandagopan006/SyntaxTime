@@ -29,6 +29,9 @@ export const TIMER_COMMAND_EVENT = "syntaxtime://timer-command";
 export const TIMER_STATE_REQUEST_EVENT = "syntaxtime://timer-state-request";
 
 export const TIMER_COMMANDS = {
+  // Starting from the focus window, so a finished session can be followed by
+  // another without going back to the main window for it.
+  start: "start",
   pause: "pause",
   resume: "resume",
   reset: "reset",

@@ -19,7 +19,13 @@ function DailyTargetProgress({ focusedSeconds }) {
   const targetMinutes = useSelector((state) => state.statistics.dailyTargetMinutes);
 
   // Only relevant while the small form is open, so it stays out of Redux.
+  //
+  // Hours and minutes are kept apart here and joined on save. A single box
+  // counted in minutes reads as a small number and invites a large one: "7"
+  // meaning seven hours becomes seven minutes, and 446 gets typed to mean the
+  // afternoon. The database still stores minutes.
   const [isEditing, setIsEditing] = useState(false);
+  const [draftHours, setDraftHours] = useState("");
   const [draftMinutes, setDraftMinutes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -29,7 +35,8 @@ function DailyTargetProgress({ focusedSeconds }) {
   const hasPassedTarget = hasTarget && focusedSeconds > targetMinutes * 60;
 
   function startEditing() {
-    setDraftMinutes(hasTarget ? String(targetMinutes) : "");
+    setDraftHours(hasTarget ? String(Math.floor(targetMinutes / 60)) : "");
+    setDraftMinutes(hasTarget ? String(targetMinutes % 60) : "");
     setSaveError("");
     setIsEditing(true);
   }
@@ -38,9 +45,25 @@ function DailyTargetProgress({ focusedSeconds }) {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    const minutes = Number(draftMinutes);
-    if (!Number.isFinite(minutes) || minutes < 0) {
-      setSaveError("Enter the number of minutes you want to study today.");
+    // An empty box means none of that unit rather than an error, so "2 hours"
+    // can be typed without also typing a zero.
+    const hours = draftHours.trim() === "" ? 0 : Number(draftHours);
+    const minutes = draftMinutes.trim() === "" ? 0 : Number(draftMinutes);
+
+    if (
+      !Number.isFinite(hours) ||
+      !Number.isFinite(minutes) ||
+      hours < 0 ||
+      minutes < 0
+    ) {
+      setSaveError("Enter how long you want to study today.");
+      return;
+    }
+
+    const totalMinutes = Math.round(hours) * 60 + Math.round(minutes);
+
+    if (totalMinutes > 24 * 60) {
+      setSaveError("A daily target cannot be longer than a day.");
       return;
     }
 
@@ -48,7 +71,7 @@ function DailyTargetProgress({ focusedSeconds }) {
     setSaveError("");
 
     try {
-      await updateTodayGoal(Math.round(minutes));
+      await updateTodayGoal(totalMinutes);
     } catch (error) {
       setSaveError(getErrorMessage(error, "Unable to save your target."));
       setIsSaving(false);
@@ -63,25 +86,42 @@ function DailyTargetProgress({ focusedSeconds }) {
   if (isEditing) {
     return (
       <form onSubmit={handleSubmit} className="mt-5 border-t border-rule pt-4">
-        <label
-          className="block text-sm font-medium text-ink-muted"
-          htmlFor="daily-target"
-        >
-          Today&apos;s target, in minutes
-        </label>
+        <p className="text-sm font-medium text-ink-muted">
+          How long do you want to study today?
+        </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="sr-only" htmlFor="daily-target-hours">
+            Target hours
+          </label>
           <input
-            id="daily-target"
+            id="daily-target-hours"
             type="number"
             min="0"
-            max="1440"
+            max="24"
+            value={draftHours}
+            onChange={(event) => setDraftHours(event.target.value)}
+            placeholder="2"
+            disabled={isSaving}
+            className="field-control w-16"
+          />
+          <span className="text-sm text-ink-muted">h</span>
+
+          <label className="sr-only" htmlFor="daily-target-minutes">
+            Target minutes
+          </label>
+          <input
+            id="daily-target-minutes"
+            type="number"
+            min="0"
+            max="59"
             value={draftMinutes}
             onChange={(event) => setDraftMinutes(event.target.value)}
-            placeholder="240"
+            placeholder="30"
             disabled={isSaving}
-            className="field-control w-24"
+            className="field-control w-16"
           />
+          <span className="text-sm text-ink-muted">m</span>
 
           <Button type="submit" variant="primary" isBusy={isSaving} busyLabel="Saving...">
             Save

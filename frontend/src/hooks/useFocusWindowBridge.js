@@ -14,6 +14,7 @@ import {
   pauseTimer,
   resetTimer,
   resumeTimer,
+  startTimer,
 } from "../features/timer/timerSlice";
 import { getTimerPhase, getTimerStatus } from "../features/timer/timerStatus";
 
@@ -112,7 +113,20 @@ export function useFocusWindowBridge() {
     // The same four actions the main window's own controls dispatch. The
     // focus window sends an intention; what it means is decided here.
     listenForTimerCommands((command) => {
-      if (command === TIMER_COMMANDS.pause) {
+      if (command === TIMER_COMMANDS.start) {
+        // Started here rather than there, like every other command: the main
+        // window owns the session, so this is the same action its own Start
+        // button dispatches. The length is whichever one is already selected.
+        const timer = store.getState().timer;
+        if (!timer.isRunning && !timer.isPaused && timer.durationSeconds > 0) {
+          dispatch(
+            startTimer({
+              startedAt: new Date().toISOString(),
+              now: Date.now(),
+            })
+          );
+        }
+      } else if (command === TIMER_COMMANDS.pause) {
         dispatch(pauseTimer(Date.now()));
       } else if (command === TIMER_COMMANDS.resume) {
         dispatch(resumeTimer(Date.now()));
@@ -133,5 +147,5 @@ export function useFocusWindowBridge() {
       isCurrent = false;
       stopListening();
     };
-  }, [dispatch]);
+  }, [dispatch, store]);
 }

@@ -85,8 +85,30 @@ class StudySessionListCreateView(generics.ListCreateAPIView):
         return sessions
 
     def perform_create(self, serializer):
-        # The owner comes from the JWT, never from the request body, so a user
-        # cannot create a session in someone else's name.
+        """
+        Saves the finished session, or returns the one already saved.
+
+        One session cannot begin twice at the same instant, so the moment it
+        started identifies it. Sending the same session again therefore updates
+        that record rather than creating a second - which is what stops a slow
+        network, a retry or an impatient second click from turning seventy
+        minutes of study into two hundred and eighty.
+
+        The owner comes from the JWT, never from the request body, so a user
+        cannot create a session in someone else's name.
+        """
+        started_at = serializer.validated_data.get("started_at")
+
+        existing = StudySession.objects.filter(
+            user=self.request.user, started_at=started_at
+        ).first()
+
+        if existing is not None:
+            # A repeat of a session already recorded. The later attempt may
+            # carry details the first did not, so it is applied to the row that
+            # exists instead of being thrown away.
+            serializer.instance = existing
+
         serializer.save(user=self.request.user)
 
 

@@ -143,13 +143,34 @@ function FocusWindow() {
             Connecting to your session...
           </p>
         ) : !isActive ? (
-          <div className="text-center">
-            <p className="text-[clamp(0.6875rem,2.8vmin,0.875rem)] text-ink">
+          /* One session usually follows another, and going back to the main
+             window to press Start defeats the point of a window that floats
+             above the work. The length is whichever is selected on Home;
+             changing it still happens there. */
+          <div className={`flex w-full flex-col items-center ${CONTENT_GAP}`}>
+            <p className="text-center text-[clamp(0.6875rem,2.8vmin,0.875rem)] text-ink">
               No session running.
             </p>
-            <p className="mt-1 text-[clamp(0.625rem,2.4vmin,0.75rem)] text-ink-faint">
-              Start one in the main SyntaxTime window.
-            </p>
+
+            {timer.durationSeconds > 0 ? (
+              <>
+                <Button
+                  variant="primary"
+                  size="fluid"
+                  fullWidth
+                  onClick={() => sendTimerCommand(TIMER_COMMANDS.start)}
+                >
+                  Start {Math.round(timer.durationSeconds / 60)} min
+                </Button>
+                <p className="text-center text-[clamp(0.625rem,2.2vmin,0.6875rem)] text-ink-faint">
+                  Change the length in the main window.
+                </p>
+              </>
+            ) : (
+              <p className="text-center text-[clamp(0.625rem,2.4vmin,0.75rem)] text-ink-faint">
+                Choose a length in the main SyntaxTime window.
+              </p>
+            )}
           </div>
         ) : (
           <>
